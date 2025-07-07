@@ -33,7 +33,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         header("Location: ../../logins/login.php");
 
-        die();
+        exit();
     } catch (PDOException $e) {
 
         // Verifica se é erro de email duplicado
@@ -46,7 +46,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Redireciona de volta para o formulário
         header("Location: ../../logins/registo_com_validacao.php");
         exit();
-        // die("Query failed: " . $e->getMessage());
     }
 } else {
     header("Location: ../../logins/registo_com_validacao.php");
