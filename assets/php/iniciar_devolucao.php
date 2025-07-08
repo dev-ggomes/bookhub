@@ -10,7 +10,7 @@ if (!isset($_SESSION['id'])) {
 $idRequisicao = $_GET['id'];
 
 try {
-    // Verificar se o usuário é o dono da requisição
+    // Verificar se o utilizador é o dono da requisição
     $stmt = $pdo->prepare("
         SELECT id_utilizador 
         FROM requisicoes 
