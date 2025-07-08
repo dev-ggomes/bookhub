@@ -179,7 +179,7 @@ try {
                         body: JSON.stringify({
                             user_id: userId,
                             req_ids: reqIds,
-                            token: 'bookhub_secret_token_123' // Mesmo token do config.php
+                            token: 'bookhub_secret_token_123' 
                         })
                     })
                     .then(response => response.text())
