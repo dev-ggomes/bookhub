@@ -222,11 +222,11 @@ if (isset($_SESSION['id'])) {
                         <input type="number" id="quantity" name="quantity" class="modal-input" min="1" value="1" required>
                         <label for="quantity" class="labelInput">Quantidade</label>
                     </div>
-
-                    <div class="modal-buttons-container">
-                        <button type="submit" name="submit" id="saveBook" class="modal-buttons">Guardar livro</button>
-                        <button type="button" name="submit" id="closeModal" class="modal-buttons1">Fechar</button>
-                    </div>
+                </div>
+                
+                <div class="modal-buttons-container">
+                    <button type="submit" name="submit" id="saveBook" class="modal-buttons">Guardar livro</button>
+                    <button type="button" name="submit" id="closeModal" class="modal-buttons1">Fechar</button>
                 </div>
             </div>
         </dialog>
