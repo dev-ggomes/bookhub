@@ -162,8 +162,8 @@ nav{
     background-color: var(--color-red1);
     padding: 10px 25px;
     border-radius: 5px;
-    margin-left: -14rem;
-    margin-right: -6rem;
+    margin-left: -20rem;
+    margin-right: -10rem;
     display: inline-block;
     transition: background-color 0.3s ease;
 }

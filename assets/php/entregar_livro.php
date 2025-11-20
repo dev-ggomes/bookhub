@@ -17,7 +17,7 @@ try {
     $stmt = $pdo->prepare("UPDATE requisicoes 
                              SET 
                                  status = 'com_o_aluno',
-                                 prazo_devolucao = DATE_ADD(NOW(), INTERVAL 2 MINUTE)
+                                 prazo_devolucao = DATE_ADD(NOW(), INTERVAL 15 DAY)
                             WHERE id = ?
                          ");
     $stmt->execute([$id]);
