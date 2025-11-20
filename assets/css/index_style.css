@@ -205,8 +205,10 @@ footer{
 .add-books{
     background-color: var(--color-blue1);
     color: var(--color-white); 
-    margin-left: 36.5rem;
-    margin-right: 36rem;
+    justify-content: center;
+    align-items: center;
+    display: flex;
+    margin: 20px auto;
     padding: 10px;
     border: none;
     border-radius: 15px
