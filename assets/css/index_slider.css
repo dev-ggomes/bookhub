@@ -7,6 +7,6 @@
 .slide img{
     display: flex;
     width: 100%;
-    height: auto;
+    height: 16.5rem;
     /* length: 200rem; */
 }
