@@ -149,13 +149,9 @@ if (isset($_SESSION['id'])) {
         <script src="../ModuloProjeto/assets/js/slider.js"></script>
     </section>
 
-    <div class="slider">
-        <div class="slides">
-            <div class="slide">
-                <img src="/ModuloProjeto/assets/img/Bookhub_v3.gif" alt="Slide 1">
-            </div>
-        </div> <!-- slides -->
-    </div> <!-- slider -->
+    <div class="slide">
+        <img src="/ModuloProjeto/assets/img/Bookhub_v3.gif" alt="Banner Bookhub">
+    </div><!-- slide -->
     
     <div class="ultimo-lancamento">
         <p>Últimos livros adicionados:</p>
