@@ -20,7 +20,7 @@ try {
     ");
     $stmt->execute([$idRequisicao]);
 
-    // Buscar dados do usuário
+    // Buscar dados do utilizador
     $stmt = $pdo->prepare("
         SELECT u.email, u.nome_completo, l.titulo 
         FROM requisicoes r 
@@ -31,14 +31,14 @@ try {
     $stmt->execute([$idRequisicao]);
     $dados = $stmt->fetch();
 
-    // Enviar email para o usuário
+    // Enviar email para o utilizador
     if ($dados) {
         $to = $dados['email'];
         $subject = "Livro Pronto para Levantamento";
         $message = "Olá {$dados['nome_completo']},\n\n";
         $message .= "O livro '{$dados['titulo']}' está pronto para levantamento na biblioteca.\n\n";
         $message .= "Por favor, dirija-se à biblioteca para recolher o livro.\n\n";
-        $message .= "Atenciosamente,\nEquipe BOOKhub";
+        $message .= "Atenciosamente,\nEquipa BOOKhub";
         
         $headers = "From: bookhub.adm1@gmail.com" . "\r\n" .
                    "Reply-To: bookhub.adm1@gmail.com";

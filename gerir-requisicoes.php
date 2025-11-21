@@ -183,6 +183,7 @@ if (isset($_SESSION['id'])) {
                 <?= $late ? 'class="linha-atrasada"' : '' ?> >
                     <td><?= $req['id'] ?></td>
                     <td><?= $req['utilizador'] ?></td>
+                    <td><?= $req['autor'] ?></td>
                     <td><?= $req['titulo'] ?></td>
                     <td><?= date('d/m/Y H:i', strtotime($req['data_requisicao'])) ?></td>
                     <td>
@@ -218,7 +219,7 @@ if (isset($_SESSION['id'])) {
                                     data-id="<?= $req['id'] ?>"
                                     data-isbn="<?= $req['cod_isbn'] ?>"
                                     data-titulo="<?= htmlspecialchars($req['titulo'], ENT_QUOTES) ?>"
-                                    data-autor="<?= htmlspecialchars($req['utilizador'], ENT_QUOTES) ?>"
+                                    data-autor="<?= htmlspecialchars($req['autor'], ENT_QUOTES) ?>"
                                 >
                                     Confirmar Devolução
                                 </button>
