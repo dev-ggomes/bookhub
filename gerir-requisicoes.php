@@ -6,7 +6,7 @@ require_once 'assets/php/check_login.php';
 // Buscar todas as requisições
 try {
     $stmt = $pdo->prepare(
-        "SELECT r.id, u.nome_completo AS utilizador, l.titulo, l.cod_isbn, 
+        "SELECT r.id, u.nome_completo AS utilizador, l.titulo, l.cod_isbn, l.autor,
                r.data_requisicao, r.status, r.data_devolucao, r.prazo_devolucao 
         FROM requisicoes r
         JOIN utilizadores u ON r.id_utilizador = u.id
