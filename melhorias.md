@@ -1,3 +1,3 @@
 ## Melhorias
 
-- tirar o nome de utilizador do modal de devolucao e meter o nome do autor
+- meter 'carrinho_header.php' em todos os arquivos de home
