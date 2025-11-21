@@ -204,7 +204,7 @@ dialog{
 .modal-buttons-container{
     display: flex;
     flex-direction: row;
-    gap: 15px;
+    gap: 8rem;
     margin-top: 4rem;
     justify-content: center;
 }
