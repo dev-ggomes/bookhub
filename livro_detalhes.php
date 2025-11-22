@@ -1,23 +1,11 @@
 <?php
 require_once 'assets/php/check_login.php';
 require_once 'assets/php/config.php';
-
-$cartCount = 0;
-if (isset($_SESSION['id'])) {
-    $conn = new mysqli($host, $dbusername, $dbpassword, $dbname);
-    $stmt = $conn->prepare("SELECT SUM(quantidade) AS total FROM carrinho WHERE id_utilizador = ?");
-    $stmt->bind_param("i", $_SESSION['id']);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $row = $result->fetch_assoc();
-    $cartCount = isset($row['total']) ? $row['total'] : 0;
-    $stmt->close();
-    $conn->close();
-}
+require_once 'assets/php/carrinho_header.php';
 
 $isbn = isset($_GET['isbn']) ? $_GET['isbn'] : ''; // Corrigido para versões antigas do PHP
 
-// Buscar detalhes do livro no banco de dados
+// Buscar detalhes do livro ah base de dados
 $conn = new mysqli($host, $dbusername, $dbpassword, $dbname);
 $stmt = $conn->prepare("SELECT * FROM livros WHERE cod_isbn = ?");
 $stmt->bind_param("s", $isbn);
@@ -27,7 +15,7 @@ $livro = $result->fetch_assoc();
 $stmt->close();
 $conn->close();
 
-// Função auxiliar para buscar capa (adicione esta função ou inclua de outro arquivo)
+// Função auxiliar para buscar capa
 function obterCapa($isbn) {
     $url = "https://www.googleapis.com/books/v1/volumes?q=isbn:$isbn";
     $response = json_decode(file_get_contents($url), true);
