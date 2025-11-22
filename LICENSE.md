@@ -1,4 +1,4 @@
-# Fluxa Programming Language — License Agreement
+# BookHub — License Agreement
 
 © Guilherme Gomes (dev-ggomes), 2025
 
