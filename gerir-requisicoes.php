@@ -153,6 +153,7 @@ try {
                 <tr>
                     <th>ID</th>
                     <th>Utilizador</th>
+                    <th>Autor</th>
                     <th>Livro</th>
                     <th>Data Requisição</th>
                     <th>Prazo de Devolução</th>
