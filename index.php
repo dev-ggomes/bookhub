@@ -1,9 +1,13 @@
 <?php
-
 require_once 'assets/php/config.php';
 require_once 'assets/php/check_login.php';
 require_once 'assets/php/carrinho_header.php';
 
+// Apenas administradores podem aceder a esta página
+if ((int) $_SESSION['admin'] !== 1) {
+    header('Location: ./index_user.php');
+    exit;
+}
 ?>
 
 <!DOCTYPE html>
