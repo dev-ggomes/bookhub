@@ -1,24 +1,27 @@
 <?php
-session_start(); // Inicia a sessão
+session_start();
 
-// Verifica se a sessão está ativa
-if (isset($_SESSION["loggedin"])) {
-    // Destrói todas as variáveis de sessão
-    $_SESSION = array();
+// Limpar todas as variáveis de sessão
+$_SESSION = [];
 
-    // Se você deseja destruir a sessão completamente, também deve destruir o cookie da sessão.
-    if (ini_get("session.use_cookies")) {
-        $params = session_get_cookie_params();
-        setcookie(session_name(), '', time() - 42000,
-            $params["path"], $params["domain"],
-            $params["secure"], $params["httponly"]
-        );
-    }
+// Destruir o cookie da sessão, se existir
+if (ini_get('session.use_cookies')) {
+    $params = session_get_cookie_params();
 
-    // Por fim, destrói a sessão
-    session_destroy();
+    setcookie(
+        session_name(),
+        '',
+        time() - 42000,
+        $params['path'],
+        $params['domain'],
+        $params['secure'],
+        $params['httponly']
+    );
 }
 
-// Redireciona para a página inicial ou página de login
-header("Location: ../index_user.php");
-exit; // Certifique-se de sair após o redirecionamento
+// Destruir a sessão
+session_destroy();
+
+// Redirecionar para a página inicial do utilizador
+header('Location: ../index_user.php');
+exit;

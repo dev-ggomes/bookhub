@@ -2,52 +2,82 @@
 session_start();
 require_once 'config.php';
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = $_POST["nome_completo"];
-    $email = $_POST["email"];
-    $password = $_POST["password"];
-    $genero = $_POST["genero"];
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: ../../logins/registo_com_validacao.php');
+    exit;
+}
 
-    try{
-        require_once "config.php";
+$username = trim($_POST['nome_completo'] ?? '');
+$email = trim($_POST['email'] ?? '');
+$password = $_POST['password'] ?? '';
+$confirmPassword = $_POST['confirm_password'] ?? '';
+$genero = $_POST['genero'] ?? '';
 
-        $pdo = new PDO("mysql:host=$host;port=3306;dbname=$dbname", $dbusername, $dbpassword);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+if (mb_strlen($username) < 5) {
+    $_SESSION['erro_geral'] = 'O nome completo deve ter pelo menos 5 caracteres.';
+    header('Location: ../../logins/registo_com_validacao.php');
+    exit;
+}
 
-        $hashedPassword = password_hash($_POST['password'], PASSWORD_DEFAULT);
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    $_SESSION['erro_geral'] = 'Introduza um email válido.';
+    header('Location: ../../logins/registo_com_validacao.php');
+    exit;
+}
 
-        $query = "INSERT INTO utilizadores (nome_completo, email, password, genero)
-                  VALUES (:nome_completo, :email, :password, :genero);";
+if (strlen($password) < 8) {
+    $_SESSION['erro_geral'] = 'A password deve ter pelo menos 8 caracteres.';
+    header('Location: ../../logins/registo_com_validacao.php');
+    exit;
+}
 
-        $stmt = $pdo->prepare($query);
+if ($password !== $confirmPassword) {
+    $_SESSION['erro_geral'] = 'As passwords não coincidem.';
+    header('Location: ../../logins/registo_com_validacao.php');
+    exit;
+}
 
-        $stmt->bindParam(":nome_completo", $username);
-        $stmt->bindParam(":email", $email);
-        $stmt->bindParam(":password", $hashedPassword);
-        $stmt->bindParam(":genero", $genero);
+if (!in_array($genero, ['m', 'f', 'o'], true)) {
+    $_SESSION['erro_geral'] = 'Selecione um género válido.';
+    header('Location: ../../logins/registo_com_validacao.php');
+    exit;
+}
 
-        $stmt->execute();
+try {
+    $verificar = $pdo->prepare("SELECT id FROM utilizadores WHERE email = ? LIMIT 1");
+    $verificar->execute([$email]);
 
-        $pdo = null;
-        $stmt = null;
-
-        header("Location: ../../logins/login.php");
-
-        exit();
-    } catch (PDOException $e) {
-
-        // Verifica se é erro de email duplicado
-        if ($e->getCode() == '23000') {
-            $_SESSION['erro_email'] = "Este email já está registado!";
-        } else {
-            $_SESSION['erro_geral'] = "Ocorreu um erro: " . $e->getMessage();
-        }
-
-        // Redireciona de volta para o formulário
-        header("Location: ../../logins/registo_com_validacao.php");
-        exit();
+    if ($verificar->fetch()) {
+        $_SESSION['erro_email'] = 'Este email já está registado!';
+        header('Location: ../../logins/registo_com_validacao.php');
+        exit;
     }
-} else {
-    header("Location: ../../logins/registo_com_validacao.php");
-    exit();
+
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
+    $query = "
+        INSERT INTO utilizadores (nome_completo, email, password, genero)
+        VALUES (:nome_completo, :email, :password, :genero)
+    ";
+
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([
+        ':nome_completo' => $username,
+        ':email' => $email,
+        ':password' => $hashedPassword,
+        ':genero' => $genero
+    ]);
+
+    $_SESSION['login_success'] = 'Registo concluído com sucesso. Já pode iniciar sessão.';
+    header('Location: ../../logins/login.php');
+    exit;
+} catch (PDOException $e) {
+    if ($e->getCode() === '23000') {
+        $_SESSION['erro_email'] = 'Este email já está registado!';
+    } else {
+        $_SESSION['erro_geral'] = 'Ocorreu um erro ao registar o utilizador.';
+    }
+
+    header('Location: ../../logins/registo_com_validacao.php');
+    exit;
 }
