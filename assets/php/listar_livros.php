@@ -1,19 +1,26 @@
 <?php
-include "config.php";
-session_start();
-header('Content-Type: application/json');
+require_once 'config.php';
+
+header('Content-Type: application/json; charset=utf-8');
 
 try {
-    $conn = new PDO("mysql:host=$host;port=3306;dbname=$dbname", $dbusername, $dbpassword);
-    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-    $sql = "SELECT cod_isbn, titulo, edicao, autor, numero_paginas, quantidade, resumo, disponivel FROM livros";
-    $stmt = $conn->prepare($sql);
+    $sql = "
+        SELECT cod_isbn, titulo, edicao, autor, numero_paginas, quantidade, resumo, disponivel
+        FROM livros
+        ORDER BY titulo ASC
+    ";
+    $stmt = $pdo->prepare($sql);
     $stmt->execute();
 
     $livros = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    echo json_encode($livros);
+
+    echo json_encode($livros, JSON_UNESCAPED_UNICODE);
+    exit;
 } catch (PDOException $e) {
-    echo json_encode(["error" => "Erro ao buscar livros: " . $e->getMessage()]);
+    http_response_code(500);
+
+    echo json_encode([
+        'error' => 'Erro ao buscar livros.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
 }
-?>

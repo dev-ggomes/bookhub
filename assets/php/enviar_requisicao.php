@@ -22,7 +22,6 @@ $userId = (int) $_SESSION['id'];
 try {
     $pdo->beginTransaction();
 
-    // Buscar itens do carrinho
     $stmt = $pdo->prepare("
         SELECT c.cod_isbn, c.quantidade, l.titulo, l.autor
         FROM carrinho c
@@ -39,7 +38,6 @@ try {
         exit;
     }
 
-    // Verificar disponibilidade
     foreach ($cartItems as $item) {
         $checkStmt = $pdo->prepare("
             SELECT disponivel
@@ -58,7 +56,6 @@ try {
         }
     }
 
-    // Criar requisições
     $requisicoes = [];
 
     foreach ($cartItems as $item) {
@@ -71,7 +68,6 @@ try {
             $requisicoes[] = $pdo->lastInsertId();
         }
 
-        // Atualizar stock disponível
         $updateStmt = $pdo->prepare("
             UPDATE livros
             SET disponivel = disponivel - ?
@@ -80,11 +76,9 @@ try {
         $updateStmt->execute([(int) $item['quantidade'], $item['cod_isbn']]);
     }
 
-    // Limpar carrinho
     $stmtDelete = $pdo->prepare("DELETE FROM carrinho WHERE id_utilizador = ?");
     $stmtDelete->execute([$userId]);
 
-    // Buscar dados do utilizador
     $userStmt = $pdo->prepare("
         SELECT nome_completo, email
         FROM utilizadores
@@ -98,14 +92,12 @@ try {
         throw new Exception('Utilizador não encontrado.');
     }
 
-    // Preparar lista de livros
     $livrosLista = array_map(function ($item) {
         return "• {$item['titulo']} - {$item['autor']} (ISBN: {$item['cod_isbn']}) - {$item['quantidade']} unidade(s)";
     }, $cartItems);
 
     $livrosTexto = implode('<br>', $livrosLista);
 
-    // Configurar PHPMailer
     $mail = new PHPMailer(true);
 
     $mail->isSMTP();
@@ -140,8 +132,8 @@ try {
         </head>
         <body>
             <h2>Nova Requisição realizada por:</h2>
-            <p><b>Nome:</b> " . htmlspecialchars($user['nome_completo']) . "</p>
-            <p><b>Email:</b> " . htmlspecialchars($user['email']) . "</p>
+            <p><b>Nome:</b> " . htmlspecialchars($user['nome_completo'], ENT_QUOTES, 'UTF-8') . "</p>
+            <p><b>Email:</b> " . htmlspecialchars($user['email'], ENT_QUOTES, 'UTF-8') . "</p>
 
             <h3>Livros Requisitados:</h3>
             <p>{$livrosTexto}</p>
@@ -156,7 +148,7 @@ try {
 
     $pdo->commit();
 
-    $_SESSION['cart_success'] = 'Requisição realizada com sucesso! Um email foi enviado para o administrador.';
+    $_SESSION['cart_success'] = 'Requisição realizada com sucesso!';
     header('Location: ' . BASE_URL . '/cart.php');
     exit;
 } catch (Exception $e) {
@@ -164,7 +156,7 @@ try {
         $pdo->rollBack();
     }
 
-    $_SESSION['cart_error'] = 'Erro ao processar requisição: ' . $e->getMessage();
+    $_SESSION['cart_error'] = 'Erro ao processar requisição.';
     header('Location: ' . BASE_URL . '/cart.php');
     exit;
 }

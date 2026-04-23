@@ -8,19 +8,20 @@ use PHPMailer\PHPMailer\Exception;
 
 // Apenas administradores
 if ((int) $_SESSION['admin'] !== 1) {
-    die('Acesso negado.');
+    header('Location: ' . BASE_URL . '/index_user.php');
+    exit;
 }
 
 $idRequisicao = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 
 if (!$idRequisicao || $idRequisicao <= 0) {
-    die('ID de requisição inválido.');
+    header('Location: ' . BASE_URL . '/gerir-requisicoes.php');
+    exit;
 }
 
 try {
     $pdo->beginTransaction();
 
-    // Buscar dados do utilizador e do livro
     $stmt = $pdo->prepare("
         SELECT r.id, r.status, r.data_devolucao, u.email, u.nome_completo, l.titulo
         FROM requisicoes r
@@ -40,7 +41,6 @@ try {
         throw new Exception('Só é possível pedir devolução de livros que estão com o aluno.');
     }
 
-    // Configurar PHPMailer
     $mail = new PHPMailer(true);
 
     $mail->isSMTP();
@@ -72,7 +72,6 @@ try {
 
     $mail->send();
 
-    // Marcar como devolução solicitada
     $updateStmt = $pdo->prepare("
         UPDATE requisicoes
         SET data_devolucao = '1970-01-01 00:00:01'
@@ -89,6 +88,7 @@ try {
         $pdo->rollBack();
     }
 
-    die('Erro: ' . $e->getMessage());
+    header('Location: ' . BASE_URL . '/gerir-requisicoes.php');
+    exit;
 }
 ?>

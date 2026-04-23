@@ -3,75 +3,73 @@ session_start();
 require_once 'config.php';
 
 // Verificar admin
-if (!isset($_SESSION['admin']) || $_SESSION['admin'] != 1) {
-    die("Acesso negado. Somente administradores podem executar esta ação.");
+if (!isset($_SESSION['admin']) || (int) $_SESSION['admin'] !== 1) {
+    $_SESSION['cart_error'] = 'Acesso negado. Somente administradores podem executar esta ação.';
+    header('Location: ' . BASE_URL . '/gerir-requisicoes.php');
+    exit;
 }
 
 // Verificar se o ID foi fornecido
-if (!isset($_GET['id']) || empty($_GET['id'])) {
-    die("ID da requisição não especificado.");
+$idRequisicao = trim($_GET['id'] ?? '');
+
+if ($idRequisicao === '' || !ctype_digit($idRequisicao)) {
+    header('Location: ' . BASE_URL . '/gerir-requisicoes.php');
+    exit;
 }
 
-$idRequisicao = $_GET['id'];
-
 try {
-    // Iniciar transação
     $pdo->beginTransaction();
 
     // 1. Verificar se a devolução foi solicitada
     $checkStmt = $pdo->prepare("
-        SELECT cod_isbn 
-        FROM requisicoes 
-        WHERE id = ? 
-        AND status = 'com_o_aluno'
-        AND data_devolucao = '1970-01-01 00:00:01'
+        SELECT cod_isbn
+        FROM requisicoes
+        WHERE id = ?
+          AND status = 'com_o_aluno'
+          AND data_devolucao = '1970-01-01 00:00:01'
+        LIMIT 1
     ");
-    
-    if (!$checkStmt->execute([$idRequisicao])) {
-        throw new Exception("Erro ao verificar requisição: " . implode(" ", $checkStmt->errorInfo()));
-    }
-    
+    $checkStmt->execute([(int) $idRequisicao]);
     $requisicao = $checkStmt->fetch(PDO::FETCH_ASSOC);
-    
+
     if (!$requisicao) {
-        throw new Exception("Não é possível concluir: devolução não solicitada, status incorreto ou já processada.");
+        throw new Exception('Não é possível concluir a devolução desta requisição.');
     }
 
     // 2. Atualizar status e data de devolução
     $updateStmt = $pdo->prepare("
-        UPDATE requisicoes 
-        SET status = 'devolvido', 
-            data_devolucao = NOW() 
+        UPDATE requisicoes
+        SET status = 'devolvido',
+            data_devolucao = NOW()
         WHERE id = ?
     ");
-    
-    if (!$updateStmt->execute([$idRequisicao])) {
-        throw new Exception("Erro ao atualizar requisição: " . implode(" ", $updateStmt->errorInfo()));
+    $updateStmt->execute([(int) $idRequisicao]);
+
+    if ($updateStmt->rowCount() <= 0) {
+        throw new Exception('Não foi possível atualizar o estado da requisição.');
     }
 
-    // 3. Atualizar estoque
+    // 3. Atualizar stock disponível
     $stockStmt = $pdo->prepare("
-        UPDATE livros 
-        SET disponivel = disponivel + 1 
+        UPDATE livros
+        SET disponivel = disponivel + 1
         WHERE cod_isbn = ?
     ");
-    
-    if (!$stockStmt->execute([$requisicao['cod_isbn']])) {
-        throw new Exception("Erro ao atualizar estoque: " . implode(" ", $stockStmt->errorInfo()));
+    $stockStmt->execute([$requisicao['cod_isbn']]);
+
+    if ($stockStmt->rowCount() <= 0) {
+        throw new Exception('Não foi possível atualizar o stock do livro.');
     }
 
-    // Commit da transação
     $pdo->commit();
-    
-    header("Location: /ModuloProjeto/gerir-requisicoes.php?success=3");
-    exit();
-    
+
+    header('Location: ' . BASE_URL . '/gerir-requisicoes.php?success=3');
+    exit;
 } catch (Exception $e) {
-    // Rollback em caso de erro
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    
-    // Mensagem de erro detalhada
-    die("Erro: " . $e->getMessage());
+
+    header('Location: ' . BASE_URL . '/gerir-requisicoes.php');
+    exit;
 }

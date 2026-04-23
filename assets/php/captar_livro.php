@@ -50,14 +50,14 @@ if (!filter_var($quantidade, FILTER_VALIDATE_INT, ['options' => ['min_range' => 
 try {
     $pdo->beginTransaction();
 
-    // Verificar se o livro já existe
-    $sqlCheck = "SELECT quantidade FROM livros WHERE cod_isbn = :cod_isbn LIMIT 1";
+    $sqlCheck = "SELECT quantidade, disponivel FROM livros WHERE cod_isbn = :cod_isbn LIMIT 1";
     $stmtCheck = $pdo->prepare($sqlCheck);
     $stmtCheck->execute([':cod_isbn' => $cod_isbn]);
     $livroExistente = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
     if ($livroExistente) {
         $nova_quantidade = (int) $livroExistente['quantidade'] + (int) $quantidade;
+        $novo_disponivel = (int) $livroExistente['disponivel'] + (int) $quantidade;
 
         $sqlUpdate = "
             UPDATE livros
@@ -66,6 +66,7 @@ try {
                 autor = :autor,
                 numero_paginas = :numero_paginas,
                 quantidade = :nova_quantidade,
+                disponivel = :novo_disponivel,
                 resumo = :resumo
             WHERE cod_isbn = :cod_isbn
         ";
@@ -76,6 +77,7 @@ try {
             ':autor' => $autor,
             ':numero_paginas' => (int) $numero_paginas,
             ':nova_quantidade' => $nova_quantidade,
+            ':novo_disponivel' => $novo_disponivel,
             ':resumo' => $resumo,
             ':cod_isbn' => $cod_isbn
         ]);
@@ -83,8 +85,8 @@ try {
         $_SESSION['message'] = 'Quantidade do livro atualizada com sucesso!';
     } else {
         $sqlInsert = "
-            INSERT INTO livros (cod_isbn, titulo, edicao, autor, numero_paginas, quantidade, resumo)
-            VALUES (:cod_isbn, :titulo, :edicao, :autor, :numero_paginas, :quantidade, :resumo)
+            INSERT INTO livros (cod_isbn, titulo, edicao, autor, numero_paginas, quantidade, disponivel, resumo)
+            VALUES (:cod_isbn, :titulo, :edicao, :autor, :numero_paginas, :quantidade, :disponivel, :resumo)
         ";
         $stmtInsert = $pdo->prepare($sqlInsert);
         $stmtInsert->execute([
@@ -94,6 +96,7 @@ try {
             ':autor' => $autor,
             ':numero_paginas' => (int) $numero_paginas,
             ':quantidade' => (int) $quantidade,
+            ':disponivel' => (int) $quantidade,
             ':resumo' => $resumo
         ]);
 

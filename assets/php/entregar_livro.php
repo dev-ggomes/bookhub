@@ -2,31 +2,57 @@
 session_start();
 require_once 'config.php';
 
+header('Content-Type: application/json; charset=utf-8');
+
 // Verificar se é admin
-if (!isset($_SESSION['admin']) || $_SESSION['admin'] != 1) {
-    die(json_encode(['success' => false, 'error' => 'Acesso negado.']));
+if (!isset($_SESSION['admin']) || (int) $_SESSION['admin'] !== 1) {
+    http_response_code(403);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Acesso negado.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
-$id = isset($_GET['id']) ? trim($_GET['id']) : '';
+$id = trim($_GET['id'] ?? '');
 
-if (empty($id)) {
-    die(json_encode(['success' => false, 'error' => 'ID não especificado.']));
+if ($id === '' || !ctype_digit($id)) {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'error' => 'ID inválido.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 try {
-    $stmt = $pdo->prepare("UPDATE requisicoes 
-                             SET 
-                                 status = 'com_o_aluno',
-                                 prazo_devolucao = DATE_ADD(NOW(), INTERVAL 15 DAY)
-                            WHERE id = ?
-                         ");
-    $stmt->execute([$id]);
+    $stmt = $pdo->prepare("
+        UPDATE requisicoes
+        SET
+            status = 'com_o_aluno',
+            prazo_devolucao = DATE_ADD(NOW(), INTERVAL 15 DAY)
+        WHERE id = ?
+          AND status = 'pronto_para_levantar'
+    ");
+    $stmt->execute([(int) $id]);
 
-    if ($stmt->rowCount() > 0) {
-        echo json_encode(['success' => true]);
-    } else {
-        echo json_encode(['success' => false, 'error' => 'Nenhum registo afetado.']);
+    if ($stmt->rowCount() <= 0) {
+        echo json_encode([
+            'success' => false,
+            'error' => 'Nenhum registo foi atualizado.'
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
     }
-} catch(PDOException $e) {
-    echo json_encode(['success' => false, 'error' => $e.getMessage()]);
+
+    echo json_encode([
+        'success' => true
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Erro interno ao entregar livro.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
 }
