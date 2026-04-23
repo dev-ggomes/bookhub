@@ -1,57 +1,43 @@
 <?php
-    require_once 'assets/php/config.php';
-    require_once 'assets/php/check_login.php';
+require_once 'assets/php/config.php';
+require_once 'assets/php/check_login.php';
+require_once 'assets/php/carrinho_header.php';
 
-    $conn = new mysqli($host, $dbusername, $dbpassword, $dbname);
-    if ($conn->connect_error) {
-        die("Falha na conexão: " . $conn->connect_error);
-    }
-    
-    // Verificar se o usuário está logado
-    $loggedIn = isset($_SESSION['id']);
-    $cartItems = [];
-    $cartCount = 0;
+// Verificar se o utilizador está autenticado
+$loggedIn = isset($_SESSION['id']);
+$cartItems = [];
 
-    // Mensagens de feedback
-    $error_message = '';
-    $success_message = '';
+// Mensagens de feedback
+$error_message = '';
+$success_message = '';
 
-    if (isset($_SESSION['cart_error'])) {
-        $error_message = $_SESSION['cart_error'];
-        unset($_SESSION['cart_error']);
-    }
+if (isset($_SESSION['cart_error'])) {
+    $error_message = $_SESSION['cart_error'];
+    unset($_SESSION['cart_error']);
+}
 
-    if (isset($_SESSION['cart_success'])) {
-        $success_message = $_SESSION['cart_success'];
-        unset($_SESSION['cart_success']);
-    }
+if (isset($_SESSION['cart_success'])) {
+    $success_message = $_SESSION['cart_success'];
+    unset($_SESSION['cart_success']);
+}
 
-    // Buscar itens do carrinho apenas se estiver logado
-    if ($loggedIn) {
-        $userId = $_SESSION['id'];
+// Buscar itens do carrinho apenas se estiver logado
+if ($loggedIn) {
+    $userId = $_SESSION['id'];
 
-        $stmt = $conn->prepare("
-            SELECT c.cod_isbn, c.quantidade, l.titulo, l.autor 
-            FROM carrinho c 
-            JOIN livros l ON c.cod_isbn = l.cod_isbn 
+    try {
+        $stmt = $pdo->prepare("
+            SELECT c.cod_isbn, c.quantidade, l.titulo, l.autor
+            FROM carrinho c
+            JOIN livros l ON c.cod_isbn = l.cod_isbn
             WHERE c.id_utilizador = ?
         ");
-        $stmt->bind_param("i", $userId);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $cartItems = $result->fetch_all(MYSQLI_ASSOC);
-        $stmt->close();
-
-        // Calcular total de itens
-        $countStmt = $conn->prepare("SELECT SUM(quantidade) AS total FROM carrinho WHERE id_utilizador = ?");
-        $countStmt->bind_param("i", $userId);
-        $countStmt->execute();
-        $countResult = $countStmt->get_result();
-        $countData = $countResult->fetch_assoc();
-        $cartCount = isset($countData['total']) ? $countData['total'] : 0;
-        $countStmt->close();
-        $conn->close();
+        $stmt->execute([$userId]);
+        $cartItems = $stmt->fetchAll();
+    } catch (PDOException $e) {
+        $error_message = "Erro ao carregar os itens do carrinho.";
     }
+}
 ?>
 
 <!DOCTYPE html>
@@ -65,7 +51,6 @@
 </head>
 <body>
     <header>
-
         <div class="box-img-header">
             <?php if ($_SESSION['admin'] == 1): ?>
                 <a href="index.php">
@@ -79,7 +64,6 @@
         </div>
 
         <nav>
-            <!-- HOME -->
             <?php if ($_SESSION['admin'] == 1): ?>
                 <a href="index.php" class="nav-links">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-house" viewBox="0 0 16 16">
@@ -93,28 +77,12 @@
                     </svg>
                 </a>
             <?php endif; ?>
-            
+
             <a href="./livros.php" class="nav-links">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-book" viewBox="0 0 16 16">
                     <path d="M1 2.828c.885-.37 2.154-.769 3.388-.893 1.33-.134 2.458.063 3.112.752v9.746c-.935-.53-2.12-.603-3.213-.493-1.18.12-2.37.461-3.287.811zm7.5-.141c.654-.689 1.782-.886 3.112-.752 1.234.124 2.503.523 3.388.893v9.923c-.918-.35-2.107-.692-3.287-.81-1.094-.111-2.278-.039-3.213.492zM8 1.783C7.015.936 5.587.81 4.287.94c-1.514.153-3.042.672-3.994 1.105A.5.5 0 0 0 0 2.5v11a.5.5 0 0 0 .707.455c.882-.4 2.303-.881 3.68-1.02 1.409-.142 2.59.087 3.223.877a.5.5 0 0 0 .78 0c.633-.79 1.814-1.019 3.222-.877 1.378.139 2.8.62 3.681 1.02A.5.5 0 0 0 16 13.5v-11a.5.5 0 0 0-.293-.455c-.952-.433-2.48-.952-3.994-1.105C10.413.809 8.985.936 8 1.783"/>
                 </svg>
             </a>
-
-            <!-- <?php if ($_SESSION['admin'] == 0): ?>
-                <a href="./wishlist.php" class="nav-links">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-suit-heart" viewBox="0 0 16 16">
-                        <path d="m8 6.236-.894-1.789c-.222-.443-.607-1.08-1.152-1.595C5.418 2.345 4.776 2 4 2 2.324 2 1 3.326 1 4.92c0 1.211.554 2.066 1.868 3.37.337.334.721.695 1.146 1.093C5.122 10.423 6.5 11.717 8 13.447c1.5-1.73 2.878-3.024 3.986-4.064.425-.398.81-.76 1.146-1.093C14.446 6.986 15 6.131 15 4.92 15 3.326 13.676 2 12 2c-.777 0-1.418.345-1.954.852-.545.515-.93 1.152-1.152 1.595zm.392 8.292a.513.513 0 0 1-.784 0c-1.601-1.902-3.05-3.262-4.243-4.381C1.3 8.208 0 6.989 0 4.92 0 2.755 1.79 1 4 1c1.6 0 2.719 1.05 3.404 2.008.26.365.458.716.596.992a7.6 7.6 0 0 1 .596-.992C9.281 2.049 10.4 1 12 1c2.21 0 4 1.755 4 3.92 0 2.069-1.3 3.288-3.365 5.227-1.193 1.12-2.642 2.48-4.243 4.38z"/>
-                    </svg>
-                </a>
-            <?php endif; ?> -->
-
-            <!-- <?php if ($_SESSION['admin'] == 1): ?>
-                <a href="./estatisticas.php" class="nav-links">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-percent" viewBox="0 0 16 16">
-                        <path d="M13.442 2.558a.625.625 0 0 1 0 .884l-10 10a.625.625 0 1 1-.884-.884l10-10a.625.625 0 0 1 .884 0M4.5 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3m0 1a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5m7 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3m0 1a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"/>
-                    </svg>
-                </a>
-            <?php endif; ?> -->
 
             <?php if ($_SESSION['admin'] == 0): ?>
                 <a href="./cart.php" class="nav-links">
@@ -128,7 +96,7 @@
                     </div>
                 </a>
             <?php endif; ?>
-            
+
             <a href="./gerir-requisicoes.php" class="nav-links">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-gear" viewBox="0 0 16 16">
                     <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492M5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0"/>
@@ -137,7 +105,7 @@
             </a>
         </nav>
 
-        <?php if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true): ?>    
+        <?php if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true): ?>
             <a href="logins/registo_com_validacao.php" class="btn-action-ref">
                 <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-person-add" viewBox="0 0 16 16">
                     <path d="M12.5 16a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7m.5-5v1h1a.5.5 0 0 1 0 1h-1v1a.5.5 0 0 1-1 0v-1h-1a.5.5 0 0 1 0-1h1v-1a.5.5 0 0 1 1 0m-2-6a3 3 0 1 1-6 0 3 3 0 0 1 6 0M8 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4"/>
@@ -151,7 +119,6 @@
                     <path fill-rule="evenodd" d="M.146 8.354a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L1.707 7.5H10.5a.5.5 0 0 1 0 1H1.707l2.147 2.146a.5.5 0 0 1-.708.708z"/>
                 </svg>
             </a>
-
         <?php else: ?>
             <a href="./detalhes_conta.php" class="btn-action-ref">
                 <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-person" viewBox="0 0 16 16">
@@ -166,43 +133,42 @@
                 </svg>
             </a>
         <?php endif; ?>
-
     </header>
 
     <main class="cart-container">
-    <p>| Carrinho</p>
+        <p>| Carrinho</p>
 
-        <!-- Mensagens de feedback -->
         <?php if ($error_message): ?>
-            <div class="alert alert-danger"><?= $error_message ?></div>
+            <div class="alert alert-danger"><?= htmlspecialchars($error_message) ?></div>
         <?php endif; ?>
-        
+
         <?php if ($success_message): ?>
-            <div class="alert alert-success"><?= $success_message ?></div>
+            <div class="alert alert-success"><?= htmlspecialchars($success_message) ?></div>
         <?php endif; ?>
 
         <?php if (!$loggedIn): ?>
-            <!-- Mensagem para o utilizador -->
             <p class="empty-cart">
-            <a href="./logins/login.php" class="login-link">Inicie sessão</a> para ver o seu carrinho.
+                <a href="./logins/login.php" class="login-link">Inicie sessão</a> para ver o seu carrinho.
             </p>
-        <?php elseif ($loggedIn): ?>
-        <div class="cart-items">
-            <?php foreach ($cartItems as $item): ?>
-                <div class="carrinho-item" data-isbn="<?= $item['cod_isbn'] ?>">
-                    <div class="livro-esquerda">
-                        <img src="https://via.placeholder.com/60x80" 
-                            alt="Capa do livro" 
-                            class="capa-livro"
-                            data-isbn="<?= $item['cod_isbn'] ?>">
-                    </div>
-                    
-                    <div class="info-livro">
-                        <h3 class="titulo-livro"><?= htmlspecialchars($item['titulo']) ?></h3>
-                        <p class="autor-livro"><?= htmlspecialchars($item['autor']) ?></p>
-                    </div>
-                        
-                        <a href="#" class="btn-remover" data-isbn="<?= $item['cod_isbn'] ?>">
+        <?php elseif (!empty($cartItems)): ?>
+            <div class="cart-items">
+                <?php foreach ($cartItems as $item): ?>
+                    <div class="carrinho-item" data-isbn="<?= htmlspecialchars($item['cod_isbn']) ?>">
+                        <div class="livro-esquerda">
+                            <img
+                                src="https://via.placeholder.com/60x80"
+                                alt="Capa do livro"
+                                class="capa-livro"
+                                data-isbn="<?= htmlspecialchars($item['cod_isbn']) ?>"
+                            >
+                        </div>
+
+                        <div class="info-livro">
+                            <h3 class="titulo-livro"><?= htmlspecialchars($item['titulo']) ?></h3>
+                            <p class="autor-livro"><?= htmlspecialchars($item['autor']) ?></p>
+                        </div>
+
+                        <a href="#" class="btn-remover" data-isbn="<?= htmlspecialchars($item['cod_isbn']) ?>">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M3 6h18"/>
                                 <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
@@ -212,148 +178,119 @@
                             </svg>
                         </a>
                     </div>
-                </div>
-            <?php endforeach; ?>
-        </div>
+                <?php endforeach; ?>
+            </div>
         <?php else: ?>
-            <p class="empty-cart">Seu carrinho está vazio.</p>
+            <p class="empty-cart">O seu carrinho está vazio.</p>
         <?php endif; ?>
-        
+
         <?php if ($loggedIn && !empty($cartItems)): ?>
-            <form action="./assets/php/enviar_requisicao.php" method="POST" class="requisitar-form">
+            <form action="./assets/php/enviar_requisicao.php" method="POST" class="requisitar-form" id="requisitarForm">
                 <button type="submit" class="btn-requisitar">
                     Requisitar Livros
                 </button>
             </form>
         <?php endif; ?>
     </main>
-    <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        // Função para buscar capas
-        async function fetchCartCovers() {
-            const items = document.querySelectorAll('.carrinho-item');
-            
-            for (const item of items) {
-                const isbn = item.dataset.isbn;
-                const img = item.querySelector('.capa-livro');
-                
-                try {
-                    const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
-                    const data = await response.json();
-                    
-                    if (data.items && data.items[0].volumeInfo.imageLinks) {
-                        img.src = data.items[0].volumeInfo.imageLinks.thumbnail;
-                        img.style.opacity = 1; // Remove placeholder effect
-                    }
-                } catch (error) {
-                    console.error(`Erro ao buscar capa para ISBN ${isbn}:`, error);
-                }
-            }
-        }
 
-        fetchCartCovers();
-    });
-    </script>
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Função para atualizar badge do carrinho
-        function updateCartBadge(count) {
-            const badge = document.querySelector('.cart-badge');
-            if (badge) {
-                badge.textContent = count;
-                badge.style.display = count > 0 ? 'block' : 'none';
-            }
-        }
-
-        document.querySelectorAll('.btn-remover').forEach(button => {
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-                const isbn = this.dataset.isbn;
-                
-                // if (confirm('Tem certeza que deseja remover este item do carrinho?')) {
-                    fetch(`assets/php/remove_from_cart.php?isbn=${isbn}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            // Remover item visualmente
-                            this.closest('.carrinho-item').remove();
-                            
-                            // Atualizar badge
-                            const badge = document.querySelector('.cart-badge');
-                            if (badge) {
-                                badge.textContent = data.cartCount;
-                                if (data.cartCount <= 0) {
-                                    badge.style.display = 'none';
-                                }
-                            }
-                            
-                            // Recarregar página se carrinho estiver vazio
-                            if (document.querySelectorAll('.carrinho-item').length === 0) {
-                                location.reload();
-                            }
-                        } else {
-                            alert(data.message);
-                        }
-                    });
-                // }
-            });
-        });
-
-        // Requisitar livros
-        document.addEventListener('DOMContentLoaded', function() {
-            const modal      = document.getElementById('confirmModal');
-            const btnYes     = document.getElementById('confirmYes');
-            const btnNo      = document.getElementById('confirmNo');
-            const requisitarBtn = document.querySelector('.btn-requisitar');
-            
-            if (!requisitarBtn) return;
-
-            requisitarBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                // mostra o modal
-                modal.style.display = 'flex';
-            });
-
-            btnNo.addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-
-            btnYes.addEventListener('click', () => {
-                modal.style.display = 'none';
-                const form = requisitarBtn.closest('form');
-                fetch(form.action, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: new URLSearchParams(new FormData(form))
-                })
-                .then(res => res.json())
-                .then(data => {
-                if (data.status === 'success') {
-                    location.reload();
-                } else {
-                    alert(data.message);
-                }
-                })
-                .catch(() => alert('Erro ao enviar requisição.'));
-            });
-        });
-    });
-    </script>
     <footer>
         <p>&copy; 2025 BOOKhub. Todos os direitos reservados</p>
     </footer>
 
     <!-- Modal de confirmação -->
     <div id="confirmModal" class="modal-overlay" style="display:none;">
-    <div class="modal-content">
-        <h2>Confirmação</h2>
-        <p id="confirmText">Tem certeza que deseja finalizar a requisição?</p>
-        <div class="modal-buttons">
-        <button id="confirmYes" class="btn-confirm-yes">Sim</button>
-        <button id="confirmNo" class="btn-confirm-no">Cancelar</button>
+        <div class="modal-content">
+            <h2>Confirmação</h2>
+            <p id="confirmText">Tem certeza que deseja finalizar a requisição?</p>
+            <div class="modal-buttons">
+                <button id="confirmYes" class="btn-confirm-yes">Sim</button>
+                <button id="confirmNo" class="btn-confirm-no">Cancelar</button>
+            </div>
         </div>
     </div>
-    </div>
 
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            async function fetchCartCovers() {
+                const items = document.querySelectorAll('.carrinho-item');
+
+                for (const item of items) {
+                    const isbn = item.dataset.isbn;
+                    const img = item.querySelector('.capa-livro');
+
+                    try {
+                        const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+                        const data = await response.json();
+
+                        if (data.items && data.items[0].volumeInfo.imageLinks) {
+                            img.src = data.items[0].volumeInfo.imageLinks.thumbnail;
+                            img.style.opacity = 1;
+                        }
+                    } catch (error) {
+                        console.error(`Erro ao buscar capa para ISBN ${isbn}:`, error);
+                    }
+                }
+            }
+
+            fetchCartCovers();
+
+            document.querySelectorAll('.btn-remover').forEach(button => {
+                button.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const isbn = this.dataset.isbn;
+
+                    fetch(`assets/php/remove_from_cart.php?isbn=${encodeURIComponent(isbn)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                const item = this.closest('.carrinho-item');
+                                if (item) {
+                                    item.remove();
+                                }
+
+                                const badge = document.querySelector('.cart-badge');
+                                if (badge) {
+                                    badge.textContent = data.cartCount;
+                                    if (data.cartCount <= 0) {
+                                        badge.style.display = 'none';
+                                    }
+                                }
+
+                                if (document.querySelectorAll('.carrinho-item').length === 0) {
+                                    location.reload();
+                                }
+                            } else {
+                                alert(data.message);
+                            }
+                        })
+                        .catch(() => {
+                            alert('Erro ao remover o item do carrinho.');
+                        });
+                });
+            });
+
+            const modal = document.getElementById('confirmModal');
+            const btnYes = document.getElementById('confirmYes');
+            const btnNo = document.getElementById('confirmNo');
+            const requisitarBtn = document.querySelector('.btn-requisitar');
+            const requisitarForm = document.getElementById('requisitarForm');
+
+            if (requisitarBtn && requisitarForm && modal && btnYes && btnNo) {
+                requisitarBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    modal.style.display = 'flex';
+                });
+
+                btnNo.addEventListener('click', function () {
+                    modal.style.display = 'none';
+                });
+
+                btnYes.addEventListener('click', function () {
+                    modal.style.display = 'none';
+                    requisitarForm.submit();
+                });
+            }
+        });
+    </script>
 </body>
 </html>
