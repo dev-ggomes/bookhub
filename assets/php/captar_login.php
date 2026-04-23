@@ -46,7 +46,7 @@ try {
     $_SESSION['username'] = $utilizador['nome_completo'];
 
     // Verifica o código secreto e sincroniza com a base de dados
-    $_SESSION['admin'] = ($codigo_secreto === '1234') ? 1 : 0;
+    $isAdmin = ($codigo_secreto === '1234') ? 1 : 0;
 
     $updateAdmin = $pdo->prepare("
         UPDATE utilizadores
@@ -54,7 +54,7 @@ try {
         WHERE id = :id
     ");
     $updateAdmin->execute([
-        ':admin' => $idAdmin,
+        ':admin' => $isAdmin,
         ':id' => $utilizador['id']
     ]);
 
