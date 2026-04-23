@@ -45,8 +45,20 @@ try {
     $_SESSION['id'] = (int) $utilizador['id'];
     $_SESSION['username'] = $utilizador['nome_completo'];
 
-    // Define o papel apenas para esta sessão, conforme o código secreto
+    // Verifica o código secreto e sincroniza com a base de dados
     $_SESSION['admin'] = ($codigo_secreto === '1234') ? 1 : 0;
+
+    $updateAdmin = $pdo->prepare("
+        UPDATE utilizadores
+        SET admin = :admin
+        WHERE id = :id
+    ");
+    $updateAdmin->execute([
+        ':admin' => $idAdmin,
+        ':id' => $utilizador['id']
+    ]);
+
+    $_SESSION['admin'] = $isAdmin;
 
     // Registar atividades selecionadas
     if (is_array($atividades) && !empty($atividades)) {

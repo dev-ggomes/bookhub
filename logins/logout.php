@@ -1,27 +1,33 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-// Limpar todas as variáveis de sessão
+// Limpa todas as variáveis de sessão
 $_SESSION = [];
 
-// Destruir o cookie da sessão, se existir
-if (ini_get('session.use_cookies')) {
+Apaga o cookie de sessão, se existir
+if (ini_get("session.use_cookies")) {
     $params = session_get_cookie_params();
 
     setcookie(
         session_name(),
-        '',
+        '', 
         time() - 42000,
-        $params['path'],
-        $params['domain'],
-        $params['secure'],
-        $params['httponly']
+        $params["path"], 
+        $params["domain"],
+        $params["secure"], 
+        $params["httponly"]
     );
 }
 
-// Destruir a sessão
+// Destrói a sessão
 session_destroy();
 
-// Redirecionar para a página inicial do utilizador
-header('Location: ../index_user.php');
+// Iniciar nova sessão limpa
+session_start();
+session_regenerate_id(true);
+
+Redireciona para a página de login
+header("Location: ../logins/login.php");
 exit;
