@@ -2,7 +2,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const button = document.getElementById("openModal");
     const modal = document.querySelector("dialog.modal");
     const closeModal = document.getElementById("closeModal");
-    const saveBook = document.getElementById("saveBook");
     const viewFullTextBtn = document.getElementById("viewFullText");
     const textModal = document.getElementById("textModal");
     const closeTextModalBtn = document.getElementById("closeTextModal");
@@ -19,6 +18,8 @@ document.addEventListener("DOMContentLoaded", function () {
     const quantityInput = document.getElementById("quantity");
     const bookForm = document.getElementById("bookForm");
 
+    const defaultCover = "https://via.placeholder.com/128x186";
+
     function resetForm() {
         if (isbnInput) isbnInput.value = "";
         if (bookTitleInput) bookTitleInput.value = "";
@@ -26,13 +27,28 @@ document.addEventListener("DOMContentLoaded", function () {
         if (bookEditionInput) bookEditionInput.value = "";
         if (bookPagesInput) bookPagesInput.value = "";
         if (textarea) textarea.value = "";
-        if (bookImage) bookImage.src = "https://via.placeholder.com/128x186";
+        if (bookImage) bookImage.src = defaultCover;
+        if (quantityInput) quantityInput.value = 1;
+    }
+
+    function clearAutoFilledFields() {
+        if (bookTitleInput) bookTitleInput.value = "";
+        if (bookAuthorInput) bookAuthorInput.value = "";
+        if (bookEditionInput) bookEditionInput.value = "";
+        if (bookPagesInput) bookPagesInput.value = "";
+        if (textarea) textarea.value = "";
+        if (bookImage) bookImage.src = defaultCover;
         if (quantityInput) quantityInput.value = 1;
     }
 
     async function fetchBookDetails(isbn) {
         try {
             const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${encodeURIComponent(isbn)}`);
+
+            if (!response.ok) {
+                throw new Error(`Erro HTTP ${response.status}`);
+            }
+
             const data = await response.json();
 
             if (data.totalItems > 0 && data.items && data.items[0] && data.items[0].volumeInfo) {
@@ -47,11 +63,14 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (book.imageLinks && book.imageLinks.thumbnail && bookImage) {
                     bookImage.src = book.imageLinks.thumbnail;
                 } else if (bookImage) {
-                    bookImage.src = "https://via.placeholder.com/128x186";
+                    bookImage.src = defaultCover;
                 }
+            } else {
+                clearAutoFilledFields();
             }
         } catch (error) {
             console.error("Erro ao buscar os detalhes do livro:", error);
+            clearAutoFilledFields();
         }
     }
 
@@ -104,12 +123,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             resetForm();
-
-            if (typeof loadBooks === "function") {
-                loadBooks();
-            } else {
-                window.location.reload();
-            }
+            window.location.reload();
         } catch (error) {
             console.error("Erro ao guardar o livro:", error);
         }
@@ -143,13 +157,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (isbn.length === 10 || isbn.length === 13) {
                 fetchBookDetails(isbn);
             } else {
-                if (bookTitleInput) bookTitleInput.value = "";
-                if (bookAuthorInput) bookAuthorInput.value = "";
-                if (bookEditionInput) bookEditionInput.value = "";
-                if (bookPagesInput) bookPagesInput.value = "";
-                if (textarea) textarea.value = "";
-                if (bookImage) bookImage.src = "https://via.placeholder.com/128x186";
-                if (quantityInput) quantityInput.value = 1;
+                clearAutoFilledFields();
             }
         });
     }

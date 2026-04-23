@@ -60,6 +60,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (data.error) {
                 console.error(data.error);
+                bookListContainer.innerHTML = "<p>Erro ao carregar livros.</p>";
                 return;
             }
 
@@ -85,6 +86,8 @@ document.addEventListener("DOMContentLoaded", function () {
             bookListContainer.innerHTML = "<p>Erro ao carregar livros.</p>";
         }
     }
+
+    window.loadBooks = loadBooks;
 
     loadBooks();
 });
