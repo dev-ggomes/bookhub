@@ -1,73 +1,94 @@
 <?php
-session_start();
-require_once 'config.php';
-require_once '../../vendor/autoload.php'; // Adicione esta linha
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/check_login.php';
+require_once __DIR__ . '/../../vendor/autoload.php';
 
-// Verificar admin
-if (!isset($_SESSION['admin']) || $_SESSION['admin'] != 1) {
-    die("Acesso negado.");
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+// Apenas administradores
+if ((int) $_SESSION['admin'] !== 1) {
+    die('Acesso negado.');
 }
 
-$idRequisicao = $_GET['id'];
+$idRequisicao = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+
+if (!$idRequisicao || $idRequisicao <= 0) {
+    die('ID de requisição inválido.');
+}
 
 try {
-    // Buscar dados do usuário e do livro
+    $pdo->beginTransaction();
+
+    // Buscar dados do utilizador e do livro
     $stmt = $pdo->prepare("
-        SELECT u.email, u.nome_completo, l.titulo 
-        FROM requisicoes r 
-        JOIN utilizadores u ON u.id = r.id_utilizador 
-        JOIN livros l ON l.cod_isbn = r.cod_isbn 
+        SELECT r.id, r.status, r.data_devolucao, u.email, u.nome_completo, l.titulo
+        FROM requisicoes r
+        JOIN utilizadores u ON u.id = r.id_utilizador
+        JOIN livros l ON l.cod_isbn = r.cod_isbn
         WHERE r.id = ?
+        LIMIT 1
     ");
     $stmt->execute([$idRequisicao]);
-    $dados = $stmt->fetch();
+    $dados = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($dados) {
-        // Configurar PHPMailer
-        $mail = new PHPMailer\PHPMailer\PHPMailer(true);
-        
-        $mail->isSMTP();
-        $mail->Host = SMTP_HOST;
-        $mail->SMTPAuth = true;
-        $mail->Username = SMTP_USER;
-        $mail->Password = SMTP_PASS;
-        $mail->SMTPSecure = 'tls';
-        $mail->Port = SMTP_PORT;
-        $mail->CharSet = 'UTF-8';
-        
-        $mail->setFrom(SMTP_USER, 'BOOKhub');
-        $mail->addAddress($dados['email'], $dados['nome_completo']);
-        $mail->Subject = "Solicitação de Devolução de Livro";
-        
-        // Corpo do email em formato texto
-        $mail->isHTML(false); // Usar formato texto simples
-        $mail->Body = "Olá {$dados['nome_completo']},\n\n";
-        $mail->Body .= "Solicitamos a devolução do livro '{$dados['titulo']}'.\n";
-        $mail->Body .= "Por favor, dirija-se à biblioteca para efetuar a devolução.\n\n";
-        $mail->Body .= "Atenciosamente,\nEquipe BOOKhub";
-        
-        // Configurações adicionais para evitar problemas com SSL
-        $mail->SMTPOptions = array(
-            'ssl' => array(
-                'verify_peer' => false,
-                'verify_peer_name' => false,
-                'allow_self_signed' => true
-            )
-        );
-
-        $mail->send();
+    if (!$dados) {
+        throw new Exception('Requisição não encontrada.');
     }
+
+    if ($dados['status'] !== 'com_o_aluno') {
+        throw new Exception('Só é possível pedir devolução de livros que estão com o aluno.');
+    }
+
+    // Configurar PHPMailer
+    $mail = new PHPMailer(true);
+
+    $mail->isSMTP();
+    $mail->Host = SMTP_HOST;
+    $mail->SMTPAuth = true;
+    $mail->Username = SMTP_USER;
+    $mail->Password = SMTP_PASS;
+    $mail->SMTPSecure = 'tls';
+    $mail->Port = SMTP_PORT;
+    $mail->CharSet = 'UTF-8';
+
+    $mail->SMTPOptions = [
+        'ssl' => [
+            'verify_peer' => false,
+            'verify_peer_name' => false,
+            'allow_self_signed' => true
+        ]
+    ];
+
+    $mail->setFrom(SMTP_USER, 'BOOKhub');
+    $mail->addAddress($dados['email'], $dados['nome_completo']);
+    $mail->Subject = 'Solicitação de Devolução de Livro';
+    $mail->isHTML(false);
+    $mail->Body =
+        "Olá {$dados['nome_completo']},\n\n" .
+        "Solicitamos a devolução do livro '{$dados['titulo']}'.\n" .
+        "Por favor, dirija-se à biblioteca para efetuar a devolução.\n\n" .
+        "Atenciosamente,\nEquipa BOOKhub";
+
+    $mail->send();
 
     // Marcar como devolução solicitada
     $updateStmt = $pdo->prepare("
-        UPDATE requisicoes 
+        UPDATE requisicoes
         SET data_devolucao = '1970-01-01 00:00:01'
         WHERE id = ?
     ");
     $updateStmt->execute([$idRequisicao]);
 
-    header("Location: ../../gerir-requisicoes.php?success=2");
+    $pdo->commit();
+
+    header('Location: ' . BASE_URL . '/gerir-requisicoes.php?success=2');
     exit;
 } catch (Exception $e) {
-    die("Erro: " . $e->getMessage());
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
+    die('Erro: ' . $e->getMessage());
 }
+?>

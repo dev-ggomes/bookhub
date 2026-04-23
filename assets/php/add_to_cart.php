@@ -2,72 +2,128 @@
 session_start();
 require_once 'config.php';
 
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
-if (!isset($_SESSION['id'])) {
-    echo json_encode(['status' => 'error', 'message' => 'Usuário não autenticado']);
+if (!isset($_SESSION['id']) || !is_numeric($_SESSION['id'])) {
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Utilizador não autenticado.'
+    ]);
     exit;
 }
 
-$isbn = isset($_POST['isbn']) ? $_POST['isbn'] : null;
-$quantity = isset($_POST['quantity']) ? (int)$_POST['quantity'] : 1;
+$isbn = trim($_POST['isbn'] ?? '');
+$quantity = isset($_POST['quantity']) ? (int) $_POST['quantity'] : 1;
+$userId = (int) $_SESSION['id'];
 
-if (!$isbn) {
-    echo json_encode(['status' => 'error', 'message' => 'ISBN inválido']);
+if ($isbn === '') {
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'ISBN inválido.'
+    ]);
     exit;
 }
 
-$userId = $_SESSION['id'];
+if ($quantity <= 0) {
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Quantidade inválida.'
+    ]);
+    exit;
+}
 
 try {
-    // Verificar se livro existe
-    $checkStmt = $pdo->prepare("SELECT cod_isbn FROM livros WHERE cod_isbn = ?");
-    $checkStmt->execute([$isbn]);
-    
-    if (!$checkStmt->fetch()) {
-        echo json_encode(['status' => 'error', 'message' => 'Livro não encontrado']);
+    // Verificar se o livro existe e se há stock disponível
+    $checkBookStmt = $pdo->prepare("
+        SELECT cod_isbn, disponivel
+        FROM livros
+        WHERE cod_isbn = ?
+        LIMIT 1
+    ");
+    $checkBookStmt->execute([$isbn]);
+    $book = $checkBookStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$book) {
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Livro não encontrado.'
+        ]);
+        exit;
+    }
+
+    $disponivel = isset($book['disponivel']) ? (int) $book['disponivel'] : 0;
+
+    if ($disponivel <= 0) {
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Este livro está indisponível.'
+        ]);
         exit;
     }
 
     // Verificar se já está no carrinho
-    $checkStmt = $pdo->prepare("
-        SELECT quantidade 
-        FROM carrinho 
+    $checkCartStmt = $pdo->prepare("
+        SELECT quantidade
+        FROM carrinho
         WHERE id_utilizador = ? AND cod_isbn = ?
+        LIMIT 1
     ");
-    $checkStmt->execute([$userId, $isbn]);
-    $existing = $checkStmt->fetch();
+    $checkCartStmt->execute([$userId, $isbn]);
+    $existing = $checkCartStmt->fetch(PDO::FETCH_ASSOC);
 
     if ($existing) {
-        // Atualizar quantidade
-        $newQuantity = $existing['quantidade'] + $quantity;
-        $stmt = $pdo->prepare("
-            UPDATE carrinho 
-            SET quantidade = ? 
+        $newQuantity = (int) $existing['quantidade'] + $quantity;
+
+        if ($newQuantity > $disponivel) {
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'Não pode adicionar mais unidades do que as disponíveis.'
+            ]);
+            exit;
+        }
+
+        $updateStmt = $pdo->prepare("
+            UPDATE carrinho
+            SET quantidade = ?
             WHERE id_utilizador = ? AND cod_isbn = ?
         ");
-        $stmt->execute([$newQuantity, $userId, $isbn]);
+        $updateStmt->execute([$newQuantity, $userId, $isbn]);
     } else {
-        // Inserir novo item
-        $stmt = $pdo->prepare("
-            INSERT INTO carrinho (id_utilizador, cod_isbn, quantidade) 
+        if ($quantity > $disponivel) {
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'Quantidade pedida superior ao stock disponível.'
+            ]);
+            exit;
+        }
+
+        $insertStmt = $pdo->prepare("
+            INSERT INTO carrinho (id_utilizador, cod_isbn, quantidade)
             VALUES (?, ?, ?)
         ");
-        $stmt->execute([$userId, $isbn, $quantity]);
+        $insertStmt->execute([$userId, $isbn, $quantity]);
     }
 
     // Obter contagem atualizada do carrinho
-    $countStmt = $pdo->prepare("SELECT SUM(quantidade) AS total FROM carrinho WHERE id_utilizador = ?");
+    $countStmt = $pdo->prepare("
+        SELECT SUM(quantidade) AS total
+        FROM carrinho
+        WHERE id_utilizador = ?
+    ");
     $countStmt->execute([$userId]);
-    $countData = $countStmt->fetch();
-    $cartCount = isset($countData['total']) ? $countData['total'] : 0;
+    $countData = $countStmt->fetch(PDO::FETCH_ASSOC);
+    $cartCount = !empty($countData['total']) ? (int) $countData['total'] : 0;
 
     echo json_encode([
-        'status' => 'success', 
+        'status' => 'success',
         'cartCount' => $cartCount,
-        'message' => 'Livro adicionado ao carrinho',
-        header("Location: ../../livros.php")
+        'message' => 'Livro adicionado ao carrinho.'
     ]);
+    exit;
 } catch (PDOException $e) {
-    echo json_encode(['status' => 'error', 'message' => 'Erro ao adicionar ao carrinho']);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Erro ao adicionar ao carrinho.'
+    ]);
+    exit;
 }

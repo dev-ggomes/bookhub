@@ -1,51 +1,68 @@
 <?php
-session_start();
-require_once 'config.php';
-require_once '../../vendor/autoload.php';
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/check_login.php';
+require_once __DIR__ . '/../../vendor/autoload.php';
 
-if (!isset($_SESSION['id'])) {
-    header("Location: /ModuloProjeto/logins/login.php");
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+// Apenas utilizadores normais podem requisitar livros
+if ((int) $_SESSION['admin'] !== 0) {
+    header('Location: ' . BASE_URL . '/index.php');
     exit;
 }
 
-$userId = $_SESSION['id'];
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: ' . BASE_URL . '/cart.php');
+    exit;
+}
+
+$userId = (int) $_SESSION['id'];
 
 try {
     $pdo->beginTransaction();
 
     // Buscar itens do carrinho
     $stmt = $pdo->prepare("
-        SELECT c.cod_isbn, c.quantidade, l.titulo, l.autor 
-        FROM carrinho c 
-        JOIN livros l ON c.cod_isbn = l.cod_isbn 
+        SELECT c.cod_isbn, c.quantidade, l.titulo, l.autor
+        FROM carrinho c
+        JOIN livros l ON c.cod_isbn = l.cod_isbn
         WHERE c.id_utilizador = ?
     ");
     $stmt->execute([$userId]);
     $cartItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     if (empty($cartItems)) {
-        $_SESSION['cart_error'] = "Seu carrinho está vazio.";
-        header("Location: ../../cart.php");
+        $_SESSION['cart_error'] = 'O seu carrinho está vazio.';
+        $pdo->rollBack();
+        header('Location: ' . BASE_URL . '/cart.php');
         exit;
     }
 
     // Verificar disponibilidade
     foreach ($cartItems as $item) {
-        $checkStmt = $pdo->prepare("SELECT disponivel FROM livros WHERE cod_isbn = ?");
+        $checkStmt = $pdo->prepare("
+            SELECT disponivel
+            FROM livros
+            WHERE cod_isbn = ?
+            LIMIT 1
+        ");
         $checkStmt->execute([$item['cod_isbn']]);
-        $livro = $checkStmt->fetch();
-        
-        if (!$livro || $livro['disponivel'] < $item['quantidade']) {
+        $livro = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$livro || (int) $livro['disponivel'] < (int) $item['quantidade']) {
             $_SESSION['cart_error'] = "O livro '{$item['titulo']}' não tem unidades suficientes disponíveis.";
-            header("Location: ../../cart.php");
+            $pdo->rollBack();
+            header('Location: ' . BASE_URL . '/cart.php');
             exit;
         }
     }
 
     // Criar requisições
     $requisicoes = [];
+
     foreach ($cartItems as $item) {
-        for ($i = 0; $i < $item['quantidade']; $i++) {
+        for ($i = 0; $i < (int) $item['quantidade']; $i++) {
             $stmtReq = $pdo->prepare("
                 INSERT INTO requisicoes (id_utilizador, cod_isbn, data_requisicao, status)
                 VALUES (?, ?, NOW(), 'pendente')
@@ -54,35 +71,43 @@ try {
             $requisicoes[] = $pdo->lastInsertId();
         }
 
-        // Atualizar estoque
+        // Atualizar stock disponível
         $updateStmt = $pdo->prepare("
-            UPDATE livros 
-            SET disponivel = disponivel - ? 
+            UPDATE livros
+            SET disponivel = disponivel - ?
             WHERE cod_isbn = ?
         ");
-        $updateStmt->execute([$item['quantidade'], $item['cod_isbn']]);
+        $updateStmt->execute([(int) $item['quantidade'], $item['cod_isbn']]);
     }
 
     // Limpar carrinho
-    $stmt = $pdo->prepare("DELETE FROM carrinho WHERE id_utilizador = ?");
-    $stmt->execute([$userId]);
+    $stmtDelete = $pdo->prepare("DELETE FROM carrinho WHERE id_utilizador = ?");
+    $stmtDelete->execute([$userId]);
 
-    // Buscar dados do usuário - CORREÇÃO: usando nome_completo
-    $userStmt = $pdo->prepare("SELECT nome_completo, email FROM utilizadores WHERE id = ?");
+    // Buscar dados do utilizador
+    $userStmt = $pdo->prepare("
+        SELECT nome_completo, email
+        FROM utilizadores
+        WHERE id = ?
+        LIMIT 1
+    ");
     $userStmt->execute([$userId]);
-    $user = $userStmt->fetch();
-    
+    $user = $userStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$user) {
+        throw new Exception('Utilizador não encontrado.');
+    }
+
     // Preparar lista de livros
-    $livrosLista = array_map(function($item) {
+    $livrosLista = array_map(function ($item) {
         return "• {$item['titulo']} - {$item['autor']} (ISBN: {$item['cod_isbn']}) - {$item['quantidade']} unidade(s)";
     }, $cartItems);
-    
-    $livrosTexto = implode("<br>", $livrosLista);
-    
+
+    $livrosTexto = implode('<br>', $livrosLista);
+
     // Configurar PHPMailer
-    $mail = new PHPMailer\PHPMailer\PHPMailer(true);
-    
-    // Configurações do servidor SMTP
+    $mail = new PHPMailer(true);
+
     $mail->isSMTP();
     $mail->Host = SMTP_HOST;
     $mail->SMTPAuth = true;
@@ -91,8 +116,7 @@ try {
     $mail->SMTPSecure = 'tls';
     $mail->Port = SMTP_PORT;
     $mail->CharSet = 'UTF-8';
-    
-    // Configurações adicionais necessárias para o Gmail
+
     $mail->SMTPOptions = [
         'ssl' => [
             'verify_peer' => false,
@@ -100,112 +124,48 @@ try {
             'allow_self_signed' => true
         ]
     ];
-    
-    // Remetente
-    $mail->setFrom(SMTP_USER, 'BOOKhub - Suporte');
-    
-    // Destinatário (admin)
-    $mail->addAddress('bookhub.adm1@gmail.com', 'Administrador BOOKhub');
-    
-    // Assunto
-    $mail->Subject = 'Nova Requisição de Livros';
 
-    // Dizer ao PHPMailer que o corpo é HTML (LINHA CRÍTICA!)
+    $mail->setFrom(SMTP_USER, 'BOOKhub - Suporte');
+    $mail->addAddress('bookhub.adm1@gmail.com', 'Administrador BOOKhub');
+    $mail->Subject = 'Nova Requisição de Livros';
     $mail->isHTML(true);
 
-    $notifyUrl = BASE_URL . "/assets/php/notificar_requisicao.php?user_id=$userId&req_ids=" . implode(', ', $requisicoes);
-    
-    // Corpo do email
     $mail->Body = "
         <html>
         <head>
             <style>
-                body {
-                    font-family: Gill Sans MT;
-                }
-                
-                h2, h3, h4 {
-                    color: #007bff;
-                }
-
-                ul {
-                    list-style-type: none;
-                    padding: 0;
-                }
-
-                li {
-                    margin-bottom: 8px;
-                }
-
-                .button {
-                    display: inline-block;
-                    background-color: #007bff;
-                    color: white;
-                    padding: 10px 20px;
-                    text-align: center;
-                    text-decoration: none;
-                    border-radius: 5px;
-                    margin-top: 15px;
-                }
+                body { font-family: Arial, sans-serif; }
+                h2, h3, h4 { color: #007bff; }
             </style>
         </head>
         <body>
             <h2>Nova Requisição realizada por:</h2>
-            <p><b>Nome:</b> {$user['nome_completo']}</p>
-            <p><b>Email:</b> {$user['email']}</p>
+            <p><b>Nome:</b> " . htmlspecialchars($user['nome_completo']) . "</p>
+            <p><b>Email:</b> " . htmlspecialchars($user['email']) . "</p>
 
             <h3>Livros Requisitados:</h3>
-            {$livrosTexto}
+            <p>{$livrosTexto}</p>
 
-            <h4><b>Total de itens:</h4></b> " . count($requisicoes) . "
-            <h4><b>IDs das Requisições:</h4></b> " . implode(", ", $requisicoes) . "
-
-            <!-- LINK PARA NOTIFICAR O UTILIZADOR -->
-            
-            <p>
-                <a class='button' href='$notifyUrl'>
-                    CLIQUE AQUI PARA NOTIFICAR O UTILIZADOR
-                </a>
-            </p>
-            
+            <h4>Total de itens: " . count($requisicoes) . "</h4>
+            <h4>IDs das Requisições: " . implode(', ', $requisicoes) . "</h4>
         </body>
-            <script>
-                function notificarUtilizador(userId, reqIds) {
-                    fetch('<?= BASE_URL ?>/assets/php/notificar_requisicao.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            user_id: userId,
-                            req_ids: reqIds,
-                            token: 'bookhub_secret_token_123' 
-                        })
-                    })
-                    .then(response => response.text())
-                    .then(result => {
-                        alert(result);
-                    })
-                    .catch(error => {
-                        alert('Erro: ' + error);
-                    });
-                }
-            </script>
         </html>
     ";
 
-    // Tentar enviar email
-    if(!$mail->send()) {
-        throw new Exception('Erro ao enviar email: ' . $mail->ErrorInfo);
-    }
+    $mail->send();
 
     $pdo->commit();
-    $_SESSION['cart_success'] = "Requisição realizada com sucesso! Um email foi enviado para o administrador.";
-    header("Location: ../../cart.php");
+
+    $_SESSION['cart_success'] = 'Requisição realizada com sucesso! Um email foi enviado para o administrador.';
+    header('Location: ' . BASE_URL . '/cart.php');
     exit;
 } catch (Exception $e) {
-    $pdo->rollBack();
-    $_SESSION['cart_error'] = "Erro ao processar requisição: " . $e->getMessage();
-    header("Location: ../../cart.php");
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
+    $_SESSION['cart_error'] = 'Erro ao processar requisição: ' . $e->getMessage();
+    header('Location: ' . BASE_URL . '/cart.php');
     exit;
 }
+?>

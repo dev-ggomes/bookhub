@@ -1,51 +1,77 @@
 <?php
-session_start();
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/check_login.php';
 
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=UTF-8');
 
-if (!isset($_SESSION['id'])) {
-    echo json_encode(['status' => 'error', 'message' => 'Usuário não autenticado']);
+// Apenas utilizadores normais podem mexer no carrinho
+if ((int) $_SESSION['admin'] !== 0) {
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Acesso negado.'
+    ]);
     exit;
 }
 
-$isbn = isset($_GET['isbn']) ? $_GET['isbn'] : null;
+$isbn = trim($_GET['isbn'] ?? '');
 
-if (!$isbn) {
-    echo json_encode(['status' => 'error', 'message' => 'ISBN inválido']);
+if ($isbn === '') {
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'ISBN inválido.'
+    ]);
     exit;
 }
 
-$userId = $_SESSION['id'];
+$userId = (int) $_SESSION['id'];
 
 try {
-    // Obter quantidade antes de remover
-    $getQtyStmt = $pdo->prepare("SELECT quantidade FROM carrinho WHERE id_utilizador = ? AND cod_isbn = ?");
-    $getQtyStmt->execute([$userId, $isbn]);
-    $item = $getQtyStmt->fetch();
-    
+    // Confirmar se o item existe no carrinho do utilizador
+    $getItemStmt = $pdo->prepare("
+        SELECT quantidade
+        FROM carrinho
+        WHERE id_utilizador = ? AND cod_isbn = ?
+        LIMIT 1
+    ");
+    $getItemStmt->execute([$userId, $isbn]);
+    $item = $getItemStmt->fetch(PDO::FETCH_ASSOC);
+
     if (!$item) {
-        echo json_encode(['status' => 'error', 'message' => 'Item não encontrado no carrinho']);
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Item não encontrado no carrinho.'
+        ]);
         exit;
     }
 
-    $quantity = $item['quantidade'];
-    
     // Remover item do carrinho
-    $stmt = $pdo->prepare("DELETE FROM carrinho WHERE id_utilizador = ? AND cod_isbn = ?");
-    $stmt->execute([$userId, $isbn]);
-    
-    // Obter nova contagem do carrinho
-    $countStmt = $pdo->prepare("SELECT SUM(quantidade) AS total FROM carrinho WHERE id_utilizador = ?");
+    $deleteStmt = $pdo->prepare("
+        DELETE FROM carrinho
+        WHERE id_utilizador = ? AND cod_isbn = ?
+    ");
+    $deleteStmt->execute([$userId, $isbn]);
+
+    // Nova contagem do carrinho
+    $countStmt = $pdo->prepare("
+        SELECT COALESCE(SUM(quantidade), 0) AS total
+        FROM carrinho
+        WHERE id_utilizador = ?
+    ");
     $countStmt->execute([$userId]);
-    $countData = $countStmt->fetch();
-    $cartCount = isset($countData['total']) ? $countData['total'] : 0;
+    $countData = $countStmt->fetch(PDO::FETCH_ASSOC);
+    $cartCount = (int) ($countData['total'] ?? 0);
 
     echo json_encode([
         'status' => 'success',
         'cartCount' => $cartCount,
-        'message' => 'Item removido do carrinho'
+        'message' => 'Item removido do carrinho.'
     ]);
+    exit;
 } catch (PDOException $e) {
-    echo json_encode(['status' => 'error', 'message' => 'Erro ao remover item: ' . $e->getMessage()]);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Erro ao remover item do carrinho.'
+    ]);
+    exit;
 }
+?>

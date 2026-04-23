@@ -1,54 +1,114 @@
 <?php
-session_start();
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/check_login.php';
 
-// Verificar admin
-if (!isset($_SESSION['admin']) || $_SESSION['admin'] != 1) {
-    die("Acesso negado.");
+// Apenas administradores podem adicionar/atualizar livros
+if ((int) $_SESSION['admin'] !== 1) {
+    header('Location: ' . BASE_URL . '/index_user.php');
+    exit;
 }
 
-$idRequisicao = $_GET['id'];
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: ' . BASE_URL . '/index.php');
+    exit;
+}
+
+$cod_isbn = trim($_POST['isbn'] ?? '');
+$titulo = trim($_POST['title'] ?? '');
+$edicao = trim($_POST['edition'] ?? '');
+$autor = trim($_POST['author'] ?? '');
+$numero_paginas = trim($_POST['numero_paginas'] ?? '');
+$quantidade = trim($_POST['quantity'] ?? '');
+$resumo = trim($_POST['summary'] ?? '');
+
+if (
+    $cod_isbn === '' ||
+    $titulo === '' ||
+    $edicao === '' ||
+    $autor === '' ||
+    $numero_paginas === '' ||
+    $quantidade === '' ||
+    $resumo === ''
+) {
+    $_SESSION['message'] = 'Preencha todos os campos obrigatórios.';
+    header('Location: ' . BASE_URL . '/index.php');
+    exit;
+}
+
+if (!filter_var($numero_paginas, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])) {
+    $_SESSION['message'] = 'O número de páginas deve ser um número inteiro positivo.';
+    header('Location: ' . BASE_URL . '/index.php');
+    exit;
+}
+
+if (!filter_var($quantidade, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])) {
+    $_SESSION['message'] = 'A quantidade deve ser um número inteiro positivo.';
+    header('Location: ' . BASE_URL . '/index.php');
+    exit;
+}
 
 try {
     $pdo->beginTransaction();
 
-    // Atualizar status
-    $stmt = $pdo->prepare("
-        UPDATE requisicoes 
-        SET status = 'pronto_para_levantar', data_conclusao = NOW() 
-        WHERE id = ?
-    ");
-    $stmt->execute([$idRequisicao]);
+    // Verificar se o livro já existe
+    $sqlCheck = "SELECT quantidade FROM livros WHERE cod_isbn = :cod_isbn LIMIT 1";
+    $stmtCheck = $pdo->prepare($sqlCheck);
+    $stmtCheck->execute([':cod_isbn' => $cod_isbn]);
+    $livroExistente = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
-    // Buscar dados do utilizador
-    $stmt = $pdo->prepare("
-        SELECT u.email, u.nome_completo, l.titulo 
-        FROM requisicoes r 
-        JOIN utilizadores u ON u.id = r.id_utilizador 
-        JOIN livros l ON l.cod_isbn = r.cod_isbn 
-        WHERE r.id = ?
-    ");
-    $stmt->execute([$idRequisicao]);
-    $dados = $stmt->fetch();
+    if ($livroExistente) {
+        $nova_quantidade = (int) $livroExistente['quantidade'] + (int) $quantidade;
 
-    // Enviar email para o utilizador
-    if ($dados) {
-        $to = $dados['email'];
-        $subject = "Livro Pronto para Levantamento";
-        $message = "Olá {$dados['nome_completo']},\n\n";
-        $message .= "O livro '{$dados['titulo']}' está pronto para levantamento na biblioteca.\n\n";
-        $message .= "Por favor, dirija-se à biblioteca para recolher o livro.\n\n";
-        $message .= "Atenciosamente,\nEquipa BOOKhub";
-        
-        $headers = "From: bookhub.adm1@gmail.com" . "\r\n" .
-                   "Reply-To: bookhub.adm1@gmail.com";
-        
-        mail($to, $subject, $message, $headers);
+        $sqlUpdate = "
+            UPDATE livros
+            SET titulo = :titulo,
+                edicao = :edicao,
+                autor = :autor,
+                numero_paginas = :numero_paginas,
+                quantidade = :nova_quantidade,
+                resumo = :resumo
+            WHERE cod_isbn = :cod_isbn
+        ";
+        $stmtUpdate = $pdo->prepare($sqlUpdate);
+        $stmtUpdate->execute([
+            ':titulo' => $titulo,
+            ':edicao' => $edicao,
+            ':autor' => $autor,
+            ':numero_paginas' => (int) $numero_paginas,
+            ':nova_quantidade' => $nova_quantidade,
+            ':resumo' => $resumo,
+            ':cod_isbn' => $cod_isbn
+        ]);
+
+        $_SESSION['message'] = 'Quantidade do livro atualizada com sucesso!';
+    } else {
+        $sqlInsert = "
+            INSERT INTO livros (cod_isbn, titulo, edicao, autor, numero_paginas, quantidade, resumo)
+            VALUES (:cod_isbn, :titulo, :edicao, :autor, :numero_paginas, :quantidade, :resumo)
+        ";
+        $stmtInsert = $pdo->prepare($sqlInsert);
+        $stmtInsert->execute([
+            ':cod_isbn' => $cod_isbn,
+            ':titulo' => $titulo,
+            ':edicao' => $edicao,
+            ':autor' => $autor,
+            ':numero_paginas' => (int) $numero_paginas,
+            ':quantidade' => (int) $quantidade,
+            ':resumo' => $resumo
+        ]);
+
+        $_SESSION['message'] = 'Novo livro registado com sucesso!';
     }
 
     $pdo->commit();
-    header("Location: ../../gerir-requisicoes.php?success=1");
-} catch (Exception $e) {
-    $pdo->rollBack();
-    die("Erro: " . $e->getMessage());
+} catch (PDOException $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
+    $_SESSION['message'] = 'Erro ao guardar o livro.';
 }
+
+header('Location: ' . BASE_URL . '/index.php');
+exit;
+?>

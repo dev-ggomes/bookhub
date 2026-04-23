@@ -1,64 +1,114 @@
 <?php
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/check_login.php';
 
-    session_start(); // Iniciar a sessão
+// Apenas administradores podem adicionar/atualizar livros
+if ((int) $_SESSION['admin'] !== 1) {
+    header('Location: ' . BASE_URL . '/index_user.php');
+    exit;
+}
 
-    // Incluir o arquivo de configuração da base de dados
-    include "config.php";
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: ' . BASE_URL . '/index.php');
+    exit;
+}
 
-    try{
-        $conn = new PDO("mysql:host=$host;port=3306;dbname=$dbname", $dbusername, $dbpassword);
-        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$cod_isbn = trim($_POST['isbn'] ?? '');
+$titulo = trim($_POST['title'] ?? '');
+$edicao = trim($_POST['edition'] ?? '');
+$autor = trim($_POST['author'] ?? '');
+$numero_paginas = trim($_POST['numero_paginas'] ?? '');
+$quantidade = trim($_POST['quantity'] ?? '');
+$resumo = trim($_POST['summary'] ?? '');
 
-        // Capturar os dados do formulário
-        $cod_isbn = $_POST['isbn'];
-        $titulo = $_POST['title'];
-        $edicao = $_POST['edition'];
-        $autor = $_POST['author'];
-        $numero_paginas = $_POST['numero_paginas'];
-        $quantidade = $_POST['quantity'];
-        $resumo = $_POST['summary'];
+if (
+    $cod_isbn === '' ||
+    $titulo === '' ||
+    $edicao === '' ||
+    $autor === '' ||
+    $numero_paginas === '' ||
+    $quantidade === '' ||
+    $resumo === ''
+) {
+    $_SESSION['message'] = 'Preencha todos os campos obrigatórios.';
+    header('Location: ' . BASE_URL . '/index.php');
+    exit;
+}
 
-        // Verificar se o livro já existe na tabela
-        $sql_check = "SELECT quantidade FROM livros WHERE cod_isbn = :cod_isbn;";
-        $stmt_check = $conn->prepare($sql_check);
-        $stmt_check->bindParam(':cod_isbn', $cod_isbn);
-        $stmt_check->execute();
+if (!filter_var($numero_paginas, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])) {
+    $_SESSION['message'] = 'O número de páginas deve ser um número inteiro positivo.';
+    header('Location: ' . BASE_URL . '/index.php');
+    exit;
+}
 
-        if ($stmt_check->rowCount() > 0){
-            // Livro já existe, incrementar a quantidade
-            $row = $stmt_check->fetch(PDO::FETCH_ASSOC);
-            $nova_quantidade = $row['quantidade'] + $quantidade;
+if (!filter_var($quantidade, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])) {
+    $_SESSION['message'] = 'A quantidade deve ser um número inteiro positivo.';
+    header('Location: ' . BASE_URL . '/index.php');
+    exit;
+}
 
-            $sql_update = "UPDATE livros SET quantidade = :nova_quantidade WHERE cod_isbn = :cod_isbn;";
-            $stmt_update = $conn->prepare($sql_update);
-            $stmt_update->bindParam(':nova_quantidade', $nova_quantidade);
-            $stmt_update->bindParam(':cod_isbn', $cod_isbn);
-            $stmt_update->execute();
+try {
+    $pdo->beginTransaction();
 
-            $_SESSION['message'] = "Quantidade do livro atualizada com sucesso!";
-        } else {
-            // Livro não existe, inserir novo registo
-            $sql_insert = "INSERT INTO livros (cod_isbn, titulo, edicao, autor, numero_paginas, quantidade, resumo)
-                           VALUES (:cod_isbn, :titulo, :edicao, :autor, :numero_paginas, :quantidade, :resumo);";
-            
-            $stmt_insert = $conn->prepare($sql_insert);
-            $stmt_insert->bindParam(':cod_isbn', $cod_isbn);
-            $stmt_insert->bindParam(':titulo', $titulo);
-            $stmt_insert->bindParam(':edicao', $edicao);
-            $stmt_insert->bindParam(':autor', $autor);
-            $stmt_insert->bindParam(':numero_paginas', $numero_paginas);
-            $stmt_insert->bindParam(':quantidade', $quantidade);
-            $stmt_insert->bindParam(':resumo', $resumo);
-            
-            $stmt_insert->execute();
+    // Verificar se o livro já existe
+    $sqlCheck = "SELECT quantidade FROM livros WHERE cod_isbn = :cod_isbn LIMIT 1";
+    $stmtCheck = $pdo->prepare($sqlCheck);
+    $stmtCheck->execute([':cod_isbn' => $cod_isbn]);
+    $livroExistente = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
-            $_SESSION['message'] = "Novo livro registado com sucesso!";
-        }
-    } catch (PDOException $e) {
-        $_SESSION['message'] = "Erro: " . $e.getMessage();
+    if ($livroExistente) {
+        $nova_quantidade = (int) $livroExistente['quantidade'] + (int) $quantidade;
+
+        $sqlUpdate = "
+            UPDATE livros
+            SET titulo = :titulo,
+                edicao = :edicao,
+                autor = :autor,
+                numero_paginas = :numero_paginas,
+                quantidade = :nova_quantidade,
+                resumo = :resumo
+            WHERE cod_isbn = :cod_isbn
+        ";
+        $stmtUpdate = $pdo->prepare($sqlUpdate);
+        $stmtUpdate->execute([
+            ':titulo' => $titulo,
+            ':edicao' => $edicao,
+            ':autor' => $autor,
+            ':numero_paginas' => (int) $numero_paginas,
+            ':nova_quantidade' => $nova_quantidade,
+            ':resumo' => $resumo,
+            ':cod_isbn' => $cod_isbn
+        ]);
+
+        $_SESSION['message'] = 'Quantidade do livro atualizada com sucesso!';
+    } else {
+        $sqlInsert = "
+            INSERT INTO livros (cod_isbn, titulo, edicao, autor, numero_paginas, quantidade, resumo)
+            VALUES (:cod_isbn, :titulo, :edicao, :autor, :numero_paginas, :quantidade, :resumo)
+        ";
+        $stmtInsert = $pdo->prepare($sqlInsert);
+        $stmtInsert->execute([
+            ':cod_isbn' => $cod_isbn,
+            ':titulo' => $titulo,
+            ':edicao' => $edicao,
+            ':autor' => $autor,
+            ':numero_paginas' => (int) $numero_paginas,
+            ':quantidade' => (int) $quantidade,
+            ':resumo' => $resumo
+        ]);
+
+        $_SESSION['message'] = 'Novo livro registado com sucesso!';
     }
 
-    // Redirecionar de volta para a página principal
-    header("Location: ../../index.php");
-    exit();
+    $pdo->commit();
+} catch (PDOException $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
+    $_SESSION['message'] = 'Erro ao guardar o livro.';
+}
+
+header('Location: ' . BASE_URL . '/index.php');
+exit;
 ?>
