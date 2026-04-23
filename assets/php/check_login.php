@@ -10,7 +10,7 @@ if (
     $_SESSION["loggedin"] !== true ||
     !isset($_SESSION['id'])
 ) {
-    header("Location: " . BASE_URL . "/login.php");
+    header("Location: " . BASE_URL . "/logins/login.php");
     exit;
 }
 
@@ -42,7 +42,7 @@ try {
         }
 
         session_destroy();
-        header("Location: " . BASE_URL . "/login.php");
+        header("Location: " . BASE_URL . "/logins/login.php");
         exit;
     }
 
@@ -68,6 +68,6 @@ try {
     }
 
     session_destroy();
-    header("Location: " . BASE_URL . "/login.php");
+    header("Location: " . BASE_URL . "/logins/login.php");
     exit;
 }
