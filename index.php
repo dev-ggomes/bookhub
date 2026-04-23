@@ -13,10 +13,10 @@ require_once 'assets/php/carrinho_header.php';
     <meta http-equiv="X-UA-Compatible" content="IE-edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="../ModuloProjeto/assets/css/index_style.css">
-    <link rel="stylesheet" href="../ModuloProjeto/assets/css/modal.css">
-    <link rel="stylesheet" href="../ModuloProjeto/assets/css/apresentar_livro.css">
-    <link rel="stylesheet" href="../ModuloProjeto/assets/css/index_slider.css">
+    <link rel="stylesheet" href="./assets/css/index_style.css">
+    <link rel="stylesheet" href="./assets/css/modal.css">
+    <link rel="stylesheet" href="./assets/css/apresentar_livro.css">
+    <link rel="stylesheet" href="./assets/css/index_slider.css">
     <link href="https://fonts.googleapis.com/css2?family=Merriweather&display=swap" rel="stylesheet">
     <title>BOOKhub</title>
 </head>
@@ -134,14 +134,7 @@ require_once 'assets/php/carrinho_header.php';
     </header>
 
     <main>
-        <!-- <h2>ISTO É O MAIN</h2> -->
-        <section class="first-section">
-            
-            <script src="../ModuloProjeto/assets/js/modal_livros.js"></script>
-            <script src="../ModuloProjeto/assets/js/carregar_livros.js"></script>
-            <script src="../ModuloProjeto/assets/js/remover_livros.js"></script>
-            <!-- <p>esta é a parte dos livros</p> -->
-        </section>
+        <section class="first-section"></section>
 
         <section class="second-section">
             <!-- <p>esta é a parte </p> -->
@@ -157,19 +150,20 @@ require_once 'assets/php/carrinho_header.php';
             <div class="slide">
                 <img src="/ModuloProjeto/assets/img/Bookhub_v3.gif" alt="Slide 1">
             </div>
-        </div>  <!-- slides -->
-    </div> <!-- slider -->
+        </div>
+    </div>
     
     <div class="ultimo-lancamento">
         <p>Últimos livros adicionados:</p>
     </div>
 
     <button id="openModal" class="add-books">Adicionar livro</button>
-        <form action="./assets/php/captar_livro.php" method="POST" id="bookForm">
+
+    <form action="./assets/php/captar_livro.php" method="POST" id="bookForm">
         <dialog class="modal">
             <h2>Adicionar Livro</h2>
             <div class="modal-content">
-                <div class="modal-left"> <!--Coluna da esquerda-->
+                <div class="modal-left">
                     <div class="book-image-container">
                         <img id="bookImage" src="https://via.placeholder.com/128x186" alt="Imagem do Livro">
                     </div>
@@ -181,6 +175,7 @@ require_once 'assets/php/carrinho_header.php';
                         </button>
                     </div>
                 </div>
+
                 <div class="modal-right">
                     <div class="inputUser">
                         <input type="text" id="isbn" name="isbn" class="modal-input" required>
@@ -219,18 +214,21 @@ require_once 'assets/php/carrinho_header.php';
                 </div>
             </div>
         </dialog>
-        </form>
+    </form>
 
-        <dialog id="textModal" class="text-modal">
-            <h2>Resumo completo do livro</h2>
-            <p id="fullTextContent"></p>
-            <button id="saveTextModal" class="modal-save-btn">Salvar alterações</button>
-            <button id="closeTextModal" class="modal-close-btn">Fechar</button>
-        </dialog>
+    <dialog id="textModal" class="text-modal">
+        <h2>Resumo completo do livro</h2>
+        <p id="fullTextContent"></p>
+        <button id="saveTextModal" class="modal-save-btn">Salvar alterações</button>
+        <button id="closeTextModal" class="modal-close-btn">Fechar</button>
+    </dialog>
         
     <footer>
         <!-- <p>&copy; 2025 BOOKhub. Todos os direitos reservados.</p> -->
     </footer>
+
     <script src="./assets/js/modal_livros.js"></script>
+    <script src="./assets/js/carregar_livros.js"></script>
+    <script src="./assets/js/remover_livros.js"></script>
 </body>
 </html>
