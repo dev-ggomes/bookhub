@@ -39,7 +39,7 @@ You are permitted to:
 
 ## 🔐 Ownership and Copyright
 
-The Fluxa programming language and all materials within this repository are the intellectual property of **Guilherme Gomes (dev-ggomes)**, unless otherwise stated.
+BookHub and all materials within this repository are the intellectual property of **Guilherme Gomes (dev-ggomes)**, unless otherwise stated.
 
 ---
 
