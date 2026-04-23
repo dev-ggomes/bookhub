@@ -1,61 +1,90 @@
 document.addEventListener("DOMContentLoaded", function () {
-    // Função para buscar a capa do livro usando a API do Google Books
-    async function fetchBookCover(isbn) {
-        try {
-            const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
-            const data = await response.json();
+    const bookListContainer = document.getElementById("book-list");
+    const defaultCover = "https://via.placeholder.com/128x186";
 
-            if (data.items && data.items[0].volumeInfo.imageLinks) {
-                return data.items[0].volumeInfo.imageLinks.thumbnail; // Retorna a URL da capa
-            }
-        } catch (error) {
-            console.error("Erro ao buscar capa do livro:", error);
-        }
-        return "https://via.placeholder.com/128x186"; // Retorna uma imagem padrão se a capa não for encontrada
+    function escapeHtml(value) {
+        const div = document.createElement("div");
+        div.textContent = value ?? "";
+        return div.innerHTML;
     }
 
-    // Função para carregar os livros
-    async function loadBooks() {
+    async function fetchBookCover(isbn) {
         try {
-            const response = await fetch('assets/php/listar_livros.php');
+            const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${encodeURIComponent(isbn)}`);
+
+            if (!response.ok) {
+                throw new Error(`Erro HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.items?.[0]?.volumeInfo?.imageLinks?.thumbnail || defaultCover;
+        } catch (error) {
+            console.error(`Erro ao buscar capa do livro com ISBN ${isbn}:`, error);
+            return defaultCover;
+        }
+    }
+
+    function createBookElement(book, coverUrl) {
+        const bookItem = document.createElement("div");
+        bookItem.className = "book-item";
+        bookItem.dataset.isbn = book.cod_isbn;
+
+        bookItem.innerHTML = `
+            <img src="${escapeHtml(coverUrl)}" alt="Capa do livro ${escapeHtml(book.titulo)}" class="book-cover">
+            <h5>${escapeHtml(book.titulo)}</h5>
+            <p><b>Autor: </b>${escapeHtml(book.autor)}</p>
+
+            <form method="POST" action="assets/php/remover_livro.php">
+                <input type="hidden" name="isbn" value="${escapeHtml(book.cod_isbn)}">
+                <button type="submit" class="remove-book">Remover</button>
+            </form>
+        `;
+
+        return bookItem;
+    }
+
+    async function loadBooks() {
+        if (!bookListContainer) {
+            return;
+        }
+
+        try {
+            const response = await fetch("assets/php/listar_livros.php");
+
             if (!response.ok) {
                 throw new Error("Erro na requisição: " + response.statusText);
             }
+
             const data = await response.json();
+            bookListContainer.innerHTML = "";
 
-            const bookListContainer = document.getElementById("book-list");
-            if (bookListContainer) {
-                bookListContainer.innerHTML = ""; // Limpa o conteúdo atual
-
-                if (data.error) {
-                    alert(data.error);
-                    return;
-                }
-
-                // Itera sobre os livros e os adiciona ao container
-                for (const book of data) {
-                    const coverUrl = await fetchBookCover(book.cod_isbn); // Busca a capa do livro
-
-                    const bookHtml = `
-                        <div class="book-item" data-isbn="${book.cod_isbn}">
-                            <img src="${coverUrl}" alt="Capa do livro ${book.titulo}" class="book-cover">
-                            <h5>${book.titulo}</h5>
-                            <p><b>Autor: </b>${book.autor}</p>
-                            
-                            <form method="POST" action="assets/php/remover_livro.php">
-                                <input type="hidden" name="isbn" value="${book.cod_isbn}">
-                                <button type="submit" class="remove-book">Remover</button>
-                            </form>
-                        </div>`;
-                    bookListContainer.innerHTML += bookHtml;
-                }
+            if (data.error) {
+                console.error(data.error);
+                return;
             }
+
+            if (!Array.isArray(data) || data.length === 0) {
+                bookListContainer.innerHTML = "<p>Não existem livros registados.</p>";
+                return;
+            }
+
+            const covers = await Promise.all(
+                data.map(book => fetchBookCover(book.cod_isbn))
+            );
+
+            const fragment = document.createDocumentFragment();
+
+            data.forEach((book, index) => {
+                const bookElement = createBookElement(book, covers[index]);
+                fragment.appendChild(bookElement);
+            });
+
+            bookListContainer.appendChild(fragment);
         } catch (error) {
-            console.error('Erro ao carregar livros:', error);
-            alert("Erro ao carregar livros. Verifique o console para mais detalhes.");
+            console.error("Erro ao carregar livros:", error);
+            bookListContainer.innerHTML = "<p>Erro ao carregar livros.</p>";
         }
     }
 
-    // Carregar os livros quando a página é carregada
     loadBooks();
 });
