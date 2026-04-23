@@ -42,10 +42,10 @@ try {
 
     $_SESSION['loggedin'] = true;
     $_SESSION['email'] = $utilizador['email'];
-    $_SESSION['id'] = $utilizador['id'];
+    $_SESSION['id'] = (int) $utilizador['id'];
+    $_SESSION['username'] = $utilizador['nome_completo'];
 
-    // Mantém compatibilidade com a tua lógica atual:
-    // se o código secreto for "1234", entra como admin
+    // Define o papel apenas para esta sessão, conforme o código secreto
     $_SESSION['admin'] = ($codigo_secreto === '1234') ? 1 : 0;
 
     // Registar atividades selecionadas

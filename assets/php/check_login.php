@@ -17,18 +17,18 @@ if (
 try {
     // Buscar dados do utilizador autenticado
     $stmt = $pdo->prepare("
-        SELECT id, nome_completo, email, admin
+        SELECT id, nome_completo, email
         FROM utilizadores
-        WHERE id = ? 
+        WHERE id = ?
         LIMIT 1
     ");
     $stmt->execute([$_SESSION['id']]);
-    $user = $stmt->fetch();
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$user) {
         $_SESSION = [];
 
-        if (ini_git("session.use_cookies")) {
+        if (ini_get("session.use_cookies")) {
             $params = session_get_cookie_params();
             setcookie(
                 session_name(),
@@ -46,11 +46,15 @@ try {
         exit;
     }
 
-    // Atualizar dados relevantes da sessão
-    $_SESSION['id'] = $user['id'];
-    $_SESSION['admin'] = (int) $user['admin'];
+    // Atualizar dados relevantes da sessão sem mexer no papel admin atual
+    $_SESSION['id'] = (int) $user['id'];
     $_SESSION['username'] = $user['nome_completo'];
     $_SESSION['email'] = $user['email'];
+
+    // Garante que a flag admin existe na sessão
+    if (!isset($_SESSION['admin'])) {
+        $_SESSION['admin'] = 0;
+    }
 } catch (PDOException $e) {
     $_SESSION = [];
 
