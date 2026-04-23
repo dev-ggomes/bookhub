@@ -1,20 +1,33 @@
 <?php
-session_start();
 require_once 'assets/php/config.php';
 require_once 'assets/php/check_login.php';
 require_once 'assets/php/carrinho_header.php';
 
-// Buscar todas as requisições
+// Buscar requisições conforme o tipo de utilizador
 try {
-    $stmt = $pdo->prepare(
-        "SELECT r.id, u.nome_completo AS utilizador, l.titulo, l.cod_isbn, l.autor,
-               r.data_requisicao, r.status, r.data_devolucao, r.prazo_devolucao 
-        FROM requisicoes r
-        JOIN utilizadores u ON r.id_utilizador = u.id
-        JOIN livros l ON r.cod_isbn = l.cod_isbn
-        ORDER BY r.data_requisicao DESC"
-    );
-    $stmt->execute();
+    if ((int) $_SESSION['admin'] === 1) {
+        $stmt = $pdo->prepare("
+            SELECT r.id, u.nome_completo AS utilizador, l.titulo, l.cod_isbn, l.autor,
+                   r.data_requisicao, r.status, r.data_devolucao, r.prazo_devolucao
+            FROM requisicoes r
+            JOIN utilizadores u ON r.id_utilizador = u.id
+            JOIN livros l ON r.cod_isbn = l.cod_isbn
+            ORDER BY r.data_requisicao DESC
+        ");
+        $stmt->execute();
+    } else {
+        $stmt = $pdo->prepare("
+            SELECT r.id, u.nome_completo AS utilizador, l.titulo, l.cod_isbn, l.autor,
+                   r.data_requisicao, r.status, r.data_devolucao, r.prazo_devolucao
+            FROM requisicoes r
+            JOIN utilizadores u ON r.id_utilizador = u.id
+            JOIN livros l ON r.cod_isbn = l.cod_isbn
+            WHERE r.id_utilizador = ?
+            ORDER BY r.data_requisicao DESC
+        ");
+        $stmt->execute([$_SESSION['id']]);
+    }
+
     $requisicoes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     die("Erro ao buscar requisições: " . $e->getMessage());
@@ -68,7 +81,7 @@ try {
                     <th>Data Requisição</th>
                     <th>Prazo de Devolução</th>
                     <th>Status</th>
-                    <?php if ($_SESSION['admin'] == 1): ?>
+                    <?php if ((int) $_SESSION['admin'] === 1): ?>
                         <th>Ações</th>
                     <?php endif; ?>
                 </tr>
@@ -121,7 +134,7 @@ try {
                             ?>
                         </td>
 
-                        <?php if ($_SESSION['admin'] == 1): ?>
+                        <?php if ((int) $_SESSION['admin'] === 1): ?>
                             <td>
                                 <?php if ($req['status'] == 'pendente'): ?>
                                     <a href="assets/php/concluir_requisicao.php?id=<?= urlencode($req['id']) ?>" class="btn-acao">Preparar Livro</a>
