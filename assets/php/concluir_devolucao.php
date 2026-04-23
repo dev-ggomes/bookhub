@@ -1,15 +1,13 @@
 <?php
-session_start();
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/check_login.php';
 
-// Verificar admin
-if (!isset($_SESSION['admin']) || (int) $_SESSION['admin'] !== 1) {
-    $_SESSION['cart_error'] = 'Acesso negado. Somente administradores podem executar esta ação.';
+// Apenas administradores
+if ((int) $_SESSION['admin'] !== 1) {
     header('Location: ' . BASE_URL . '/gerir-requisicoes.php');
     exit;
 }
 
-// Verificar se o ID foi fornecido
 $idRequisicao = trim($_GET['id'] ?? '');
 
 if ($idRequisicao === '' || !ctype_digit($idRequisicao)) {
@@ -20,7 +18,7 @@ if ($idRequisicao === '' || !ctype_digit($idRequisicao)) {
 try {
     $pdo->beginTransaction();
 
-    // 1. Verificar se a devolução foi solicitada
+    // Confirmar que a requisição está no estado certo para devolução
     $checkStmt = $pdo->prepare("
         SELECT cod_isbn
         FROM requisicoes
@@ -36,12 +34,14 @@ try {
         throw new Exception('Não é possível concluir a devolução desta requisição.');
     }
 
-    // 2. Atualizar status e data de devolução
+    // Atualizar estado da requisição
     $updateStmt = $pdo->prepare("
         UPDATE requisicoes
         SET status = 'devolvido',
             data_devolucao = NOW()
         WHERE id = ?
+          AND status = 'com_o_aluno'
+          AND data_devolucao = '1970-01-01 00:00:01'
     ");
     $updateStmt->execute([(int) $idRequisicao]);
 
@@ -49,7 +49,7 @@ try {
         throw new Exception('Não foi possível atualizar o estado da requisição.');
     }
 
-    // 3. Atualizar stock disponível
+    // Devolver unidade ao stock disponível
     $stockStmt = $pdo->prepare("
         UPDATE livros
         SET disponivel = disponivel + 1

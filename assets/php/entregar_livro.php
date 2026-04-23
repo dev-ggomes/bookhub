@@ -1,11 +1,11 @@
 <?php
-session_start();
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/check_login.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
-// Verificar se é admin
-if (!isset($_SESSION['admin']) || (int) $_SESSION['admin'] !== 1) {
+// Apenas administradores
+if ((int) $_SESSION['admin'] !== 1) {
     http_response_code(403);
     echo json_encode([
         'success' => false,
