@@ -1,44 +1,61 @@
 <?php
-session_start();
-header("Access-Control-Allow-Origin: * ");
-header("Content-Type: application/json");
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/check_login.php';
 
-include "config.php";
+// Apenas administradores podem remover livros
+if ((int) $_SESSION['admin'] !== 1) {
+    header('Location: ' . BASE_URL . '/index_user.php');
+    exit;
+}
 
-    try{
-        // Conexão com a base de dados 
-        $conn = new PDO("mysql:host=$host;port=3306;dbname=$dbname", $dbusername, $dbpassword);
-        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: ' . BASE_URL . '/livros.php');
+    exit;
+}
 
-        if (!isset($_POST['isbn']) || empty($_POST['isbn'])) {
-            echo json_encode(["error" => "ISBN não fornecido."]);
-            exit();
-        }
+$cod_isbn = trim($_POST['isbn'] ?? '');
 
-        // Capturar o ISBN do livro a ser removido
-        $cod_isbn = $_POST['isbn'];
+if ($cod_isbn === '') {
+    $_SESSION['message'] = 'ISBN não fornecido.';
+    header('Location: ' . BASE_URL . '/livros.php');
+    exit;
+}
 
-        // Verificar se o livro existe
-        $sql_check = "SELECT cod_isbn FROM livros WHERE cod_isbn = :cod_isbn";
-        $stmt_check = $conn->prepare($sql_check);
-        $stmt_check->bindParam(':cod_isbn', $cod_isbn);
-        $stmt_check->execute();
+try {
+    // Verificar se o livro existe
+    $sqlCheck = "
+        SELECT cod_isbn
+        FROM livros
+        WHERE cod_isbn = :cod_isbn
+        LIMIT 1
+    ";
+    $stmtCheck = $pdo->prepare($sqlCheck);
+    $stmtCheck->execute([':cod_isbn' => $cod_isbn]);
+    $livro = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
-        if ($stmt_check->rowCount() > 0) {
-            // Remover o livro
-            $sql_delete = "DELETE FROM livros WHERE cod_isbn = :cod_isbn";
-            $stmt_delete = $conn->prepare($sql_delete);
-            $stmt_delete->bindParam(':cod_isbn', $cod_isbn);
-            $stmt_delete->execute();
-
-            $_SESSION['message'] = "Livro removido com sucesso!";
-        } else {
-            $_SESSION['message'] = "Livro não encontrado.";
-        }
-    } catch (PDOException $e) {
-        $_SESSION['message'] = "Erro: " . $e->getMessage();
+    if (!$livro) {
+        $_SESSION['message'] = 'Livro não encontrado.';
+        header('Location: ' . BASE_URL . '/livros.php');
+        exit;
     }
 
-    // Redirecionar de volta para a página principal
-    header("Location: ../../livros.php");
-    exit();
+    // Remover o livro
+    $sqlDelete = "
+        DELETE FROM livros
+        WHERE cod_isbn = :cod_isbn
+    ";
+    $stmtDelete = $pdo->prepare($sqlDelete);
+    $stmtDelete->execute([':cod_isbn' => $cod_isbn]);
+
+    if ($stmtDelete->rowCount() > 0) {
+        $_SESSION['message'] = 'Livro removido com sucesso!';
+    } else {
+        $_SESSION['message'] = 'Não foi possível remover o livro.';
+    }
+} catch (PDOException $e) {
+    $_SESSION['message'] = 'Erro ao remover o livro.';
+}
+
+header('Location: ' . BASE_URL . '/livros.php');
+exit;
+?>
