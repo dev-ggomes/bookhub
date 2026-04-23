@@ -1,9 +1,7 @@
 <?php
-
-    require_once 'assets/php/config.php';
-    require_once 'assets/php/check_login.php';
-    require_once 'assets/php/carrinho_header.php';
-    
+require_once 'assets/php/config.php';
+require_once 'assets/php/check_login.php';
+require_once 'assets/php/carrinho_header.php';
 ?>
 
 <!DOCTYPE html>
@@ -17,7 +15,6 @@
 </head>
 <body>
     <header>
-
         <div class="box-img-header">
             <?php if ($_SESSION['admin'] == 1): ?>
                 <a href="index.php">
@@ -141,6 +138,5 @@
     <?php elseif ($_SESSION['admin'] == 1): ?>
         <script src="./assets/js/carregar_livros.js"></script>
     <?php endif; ?>
-    
 </body>
 </html>
